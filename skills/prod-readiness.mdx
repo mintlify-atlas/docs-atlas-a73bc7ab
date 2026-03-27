@@ -1,0 +1,189 @@
+---
+title: "/prod-readiness"
+description: Scans codebases for 24 production readiness items and produces a scored report with pass/fail/warning and suggested fixes
+---
+
+Scans code and config files for 24 production readiness items and produces a scorecard with PASS / WARN / FAIL status, suggested fixes, and an overall readiness percentage. Use when you need to audit a codebase before deploying to production, review operational concerns, or assess deployment readiness.
+
+## Invocation
+
+```text
+/prod-readiness
+```
+
+Run from the project root. The skill detects the stack automatically by scanning config files and then evaluates all 24 checks against the full project tree.
+
+## Workflow
+
+<Steps>
+  <Step title="Detect project stack">
+    Identify the language, framework, package manager, and container tooling by scanning project root files.
+
+    Detection covers: Python (Flask, FastAPI, Django), Node.js (Express, Fastify, NestJS), Java/Kotlin (Spring Boot, Micronaut via Gradle or Maven), Go, Rust, and C#/.NET. Container tooling is detected from `Dockerfile`, `docker-compose.yml`, and Kubernetes manifests.
+  </Step>
+
+  <Step title="Load check definitions">
+    Load all 24 production readiness checks organized across 4 categories: Reliability, Observability, Security, and Operations.
+
+    Each check defines what to look for, the severity level, and the pass/warn/fail criteria.
+  </Step>
+
+  <Step title="Scan the codebase">
+    For each of the 24 checks, use Glob and Grep with primary, framework-specific, and broad fallback patterns to find evidence across the **full project tree** — including `src/`, config files, `Dockerfile`, CI pipelines, and infrastructure files.
+
+    Every match is recorded with its file path and line number.
+
+    <Warning>
+      Each check gets three search attempts before it can be marked FAIL. Never mark FAIL after a single search miss.
+    </Warning>
+  </Step>
+
+  <Step title="Score each check">
+    Assign PASS, WARN, FAIL, or N/A to each check using the scoring rules:
+
+    | Score | Points | When to use |
+    |-------|--------|-------------|
+    | PASS | 100 | At least one `file:line` reference confirms implementation |
+    | WARN | 50 | Implementation exists but is incomplete or has gaps |
+    | FAIL | 0 | All three search attempts returned nothing |
+    | N/A | excluded | Check does not apply to this project type |
+
+    **Overall percentage formula:**
+    ```text
+    score = (PASS_count × 100 + WARN_count × 50) / (applicable_checks × 100) × 100
+    ```
+
+    | Score | Grade | Meaning |
+    |-------|-------|---------|
+    | 90–100% | A | Production ready |
+    | 75–89% | B | Near ready — address FAIL items before deploy |
+    | 60–74% | C | Significant gaps — not safe for production |
+    | 40–59% | D | Major gaps — substantial work needed |
+    | 0–39% | F | Not production ready |
+  </Step>
+
+  <Step title="Generate scorecard">
+    Output the markdown scorecard table organized by category, fix suggestions for every FAIL and WARN item, and the overall readiness percentage.
+
+    Every PASS item lists at least one `file:line` as evidence. Every FAIL item includes a framework-specific fix suggestion with a code or config snippet of 5–15 lines.
+  </Step>
+
+  <Step title="Self-review">
+    Verify the scorecard before delivering:
+
+    - All 24 checks appear in the scorecard (none skipped)
+    - Every FAIL item has a specific, actionable fix referencing the detected stack
+    - Every PASS item lists at least one file path as evidence
+    - The overall percentage matches the formula
+    - No false FAILs: alternative patterns were tried before marking FAIL
+    - Category groupings (Reliability, Observability, Security, Operations) are present
+  </Step>
+</Steps>
+
+## The 24 checks
+
+<AccordionGroup>
+  <Accordion title="Reliability (checks 1–6)">
+    | # | Check | Severity | Description |
+    |---|-------|----------|-------------|
+    | 1 | Health Check Endpoints | Critical | HTTP `/health`, `/healthz`, `/ready`, or `/actuator/health` endpoint exists for load balancer and orchestrator probes |
+    | 2 | Graceful Shutdown | Critical | Process handles SIGTERM/SIGINT by draining in-flight requests before exiting |
+    | 3 | Circuit Breakers | High | Stops calling a failing downstream after repeated failures to prevent cascade failures |
+    | 4 | Retry Policies | High | Automatic retries for transient failures with exponential backoff and jitter |
+    | 5 | Timeouts | Critical | Explicit timeouts on all external calls (HTTP, database, cache, message queue) |
+    | 6 | Connection Pooling | Medium | Reuse of connections to databases, caches, and external services via pools |
+
+    **PASS criteria examples:**
+    - Check 1: Route defined for `/healthz` in `src/routes/health.ts:14`
+    - Check 2: `SIGTERM` handler calls `server.close()` before `process.exit()`
+    - Check 5: HTTP client configured with `connectTimeout` and `readTimeout`
+  </Accordion>
+
+  <Accordion title="Observability (checks 7–11)">
+    | # | Check | Severity | Description |
+    |---|-------|----------|-------------|
+    | 7 | Structured Logging | High | Log output in JSON format with consistent fields: timestamp, level, message, correlation_id |
+    | 8 | Metrics / Instrumentation | High | Application exports counters, histograms, and gauges (request count, latency, error rate) |
+    | 9 | Distributed Tracing | Medium | Request flows traced across service boundaries with trace IDs and spans |
+    | 10 | Monitoring / Alerting Configuration | High | Alert rules defined in code for key indicators (error rate, P99 latency, disk usage) |
+    | 11 | Error Tracking | Medium | Unhandled exceptions captured and reported to an error tracking service (Sentry, Bugsnag, Rollbar) |
+
+    **PASS criteria examples:**
+    - Check 7: `structlog` or `zap` or `winston` configured with JSON format
+    - Check 8: `prometheus-client` with custom `Counter` and `Histogram` definitions
+    - Check 10: Prometheus `rules.yml` or Datadog monitor config present in repo
+  </Accordion>
+
+  <Accordion title="Security (checks 12–17)">
+    | # | Check | Severity | Description |
+    |---|-------|----------|-------------|
+    | 12 | Input Validation | Critical | All external input validated before processing using a schema library (Zod, Pydantic, Bean Validation) |
+    | 13 | Secrets Management | Critical | Secrets loaded from environment variables or vault; no hardcoded credentials in source files |
+    | 14 | Security Headers | Medium | HTTP responses include HSTS, CSP, X-Content-Type-Options, and X-Frame-Options |
+    | 15 | CORS Configuration | Medium | CORS explicitly configured with allowed origins list — not wildcard `*` |
+    | 16 | TLS / SSL | High | All external communication uses TLS; HTTP redirected to HTTPS |
+    | 17 | Dependency Vulnerability Scanning | High | Dependencies scanned for known vulnerabilities in CI (`npm audit`, Snyk, Trivy, Dependabot) |
+
+    **PASS criteria examples:**
+    - Check 12: `zod` schema applied to all Express route handlers
+    - Check 13: All secrets use `process.env`; `.env` listed in `.gitignore`
+    - Check 17: `.github/dependabot.yml` present and `npm audit` step in CI workflow
+  </Accordion>
+
+  <Accordion title="Operations (checks 18–24)">
+    | # | Check | Severity | Description |
+    |---|-------|----------|-------------|
+    | 18 | Container Health Probes | High | `livenessProbe` and `readinessProbe` defined in Kubernetes deployment YAML or `HEALTHCHECK` in Dockerfile |
+    | 19 | Resource Limits | High | CPU and memory limits set in Kubernetes deployment YAML, Docker Compose, or JVM flags |
+    | 20 | Database Migrations | Medium | Schema changes managed through versioned migration files (Flyway, Alembic, Prisma migrate, goose) |
+    | 21 | Graceful Degradation / Fallbacks | Medium | System returns a degraded response when a dependency fails, instead of a hard error |
+    | 22 | API Versioning | Medium | API endpoints versioned (`/v1/`, `/v2/`) to allow non-breaking evolution |
+    | 23 | Rate Limiting | Medium | Incoming requests rate-limited at application or API gateway level |
+    | 24 | Documentation | Low | API spec (OpenAPI/Swagger), generated docs, or README with endpoint descriptions |
+
+    **N/A cases:**
+    - Check 20 (database migrations): marked N/A for stateless services with no database access
+    - Check 22 (API versioning): marked N/A for CLI tools, libraries, and non-API services
+    - Check 24 (documentation): marked N/A for non-API services
+  </Accordion>
+</AccordionGroup>
+
+## Self-review checklist
+
+Before delivering the scorecard, verify **all** of the following:
+
+- All 24 checks from the check definitions appear in the scorecard (none skipped)
+- Every FAIL item has a specific, actionable fix suggestion referencing the project's stack
+- Every PASS item lists at least one file path as evidence
+- The overall percentage matches the formula: `(PASS_count × 100 + WARN_count × 50) / (applicable_checks × 100) × 100`
+- No false FAILs: re-scanned with alternative patterns before marking FAIL
+- Category groupings (Reliability, Observability, Security, Operations) are present
+- Fix suggestions reference the detected framework, not generic advice
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Every check gets three search attempts">
+    Never mark FAIL after a single Grep. Use the primary pattern, then the framework-specific pattern, then a broad fallback pattern. Only mark FAIL after all three miss.
+  </Accordion>
+
+  <Accordion title="2. Evidence is file paths and line numbers">
+    Never mark PASS without recording at least one `file:line` reference. "I saw it somewhere" is not evidence.
+  </Accordion>
+
+  <Accordion title="3. Fixes must name the framework">
+    Never suggest "add a health check endpoint." Always suggest "add a Spring Boot Actuator `/health` endpoint" or "add an Express `/healthz` route" based on the detected stack.
+  </Accordion>
+
+  <Accordion title="4. WARN means partial">
+    Mark WARN only when evidence exists but is incomplete — for example, logging exists but is not structured, or timeouts exist on some clients but not all. Never use WARN as "I'm not sure."
+  </Accordion>
+
+  <Accordion title="5. Scan depth over speed">
+    Always search the full project tree. Never limit to `src/` alone — config, Docker, CI, and infra files contain critical production readiness signals.
+  </Accordion>
+
+  <Accordion title="6. Do not invent findings">
+    If a check category does not apply to the project type, mark it N/A with a one-line reason and exclude it from the percentage calculation.
+  </Accordion>
+</AccordionGroup>

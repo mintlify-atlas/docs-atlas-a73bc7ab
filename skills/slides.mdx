@@ -1,0 +1,142 @@
+---
+title: "/slides"
+description: Converts content into a Reveal.js slide deck and opens it live in the browser.
+---
+
+Converts content from the conversation into a Reveal.js HTML slide deck, writes it to `/tmp/slides.html`, and opens it live in the browser. The output is a fully interactive presentation — navigate with arrow keys, go fullscreen with F, and share the file directly.
+
+Use this skill when you want to create slides, a presentation, a deck, or a slideshow, or when you say "present this", "turn this into slides", "make a deck", or mention Keynote, PowerPoint, or Reveal.
+
+## Invocation
+
+```text
+/slides [content to present, or description of what you want]
+```
+
+**Examples:**
+
+```text
+/slides turn this research report into a deck
+/slides create a 5-slide intro to our API product
+/slides present the Q3 metrics summary
+/slides make slides from the bullet points above
+```
+
+## What it can convert
+
+The skill handles any structured or unstructured content:
+
+- Markdown documents and outlines
+- Bullet point lists and numbered lists
+- Research reports and summaries
+- Free-form text descriptions of what you want to present
+- Code snippets (rendered in code slides with syntax highlighting)
+
+## Slide types
+
+| Type | When used |
+|------|-----------|
+| Title | Opening slide with main heading and subtitle |
+| Bullet | Key points, up to 6 per slide |
+| Two-column | Side-by-side comparisons or paired content |
+| Quote | Pull quotes or key statements |
+| Code | Code snippets with syntax highlighting |
+
+## Workflow
+
+<Steps>
+  <Step title="Extract content structure">
+    Identify the title, sections, and key points from the conversation or user-supplied content. Apply content chunking rules from `TEMPLATE.md`.
+  </Step>
+
+  <Step title="Plan slide types and count">
+    Assign each section a slide type: title, bullet, two-column, quote, or code. Max 6 bullets per slide — split into two consecutive slides with a shared heading if needed.
+  </Step>
+
+  <Step title="Write /tmp/slides.html">
+    Write a complete self-contained file using the Reveal.js template with all CDN links in the correct order.
+  </Step>
+
+  <Step title="Open in browser">
+    Call `mcp__chrome-devtools__new_page` with `url: file:///tmp/slides.html`.
+  </Step>
+
+  <Step title="Wait for render">
+    Call `mcp__chrome-devtools__wait_for` on the title slide's main heading text. Timeout 10000ms.
+  </Step>
+
+  <Step title="Take screenshot">
+    Call `mcp__chrome-devtools__take_screenshot` and verify the first slide is styled and readable.
+  </Step>
+
+  <Step title="Tell the user how to navigate">
+    Reply: "arrow keys to navigate, F for fullscreen".
+  </Step>
+</Steps>
+
+## Use cases
+
+<CardGroup cols={3}>
+  <Card title="Research presentations" icon="microscope">
+    Turn a deep-research report or summary into a structured slide deck ready to present.
+  </Card>
+
+  <Card title="Product demos" icon="display">
+    Convert a product outline or feature list into a visual walkthrough with title and bullet slides.
+  </Card>
+
+  <Card title="Technical talks" icon="code">
+    Present code, architecture decisions, or API designs with code slides and two-column layouts.
+  </Card>
+</CardGroup>
+
+<Note>
+  Navigate the deck with arrow keys. Press F for fullscreen. The file at `/tmp/slides.html` is self-contained and can be shared or opened in any browser.
+</Note>
+
+## Self-review checklist
+
+Before delivering, the skill verifies all of the following:
+
+- Screenshot shows a styled dark slide — not plain unstyled HTML text on a white background
+- Heading text is mixed-case, not ALL CAPS (custom CSS override applied)
+- No slide has more than 6 bullet points
+- CDN links appear in correct order: `reveal.css`, then `black.css` theme, then `reveal.js`
+- `Reveal.initialize()` is called with `hash: true`, `transition: 'slide'`, `backgroundTransition: 'fade'`
+- `wait_for` was called before `take_screenshot`
+- User was told: arrow keys to navigate, F for fullscreen
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Never allow headings to render uppercase">
+    Always include `.reveal h1, .reveal h2 { text-transform: none; }` in custom CSS. Reveal.js default forces uppercase and it looks bad.
+  </Accordion>
+
+  <Accordion title="2. Never put more than 6 bullet points on one slide">
+    Split into two consecutive slides with a shared heading if needed (e.g. "Key Points (1/2)" and "Key Points (2/2)").
+  </Accordion>
+
+  <Accordion title="3. Always load theme CSS after reveal.css">
+    The order is: `reveal.css`, then `theme/black.css`. Reversed order silently breaks all theming.
+  </Accordion>
+
+  <Accordion title="4. Always use hash: true in Reveal.initialize">
+    This enables deep-linking to slides by index.
+  </Accordion>
+
+  <Accordion title="5. Always call wait_for before take_screenshot">
+    Wait on the title text. Screenshotting before Reveal renders produces a blank white image.
+  </Accordion>
+
+  <Accordion title="6. Always use new_page for first open">
+    Use `mcp__chrome-devtools__new_page` with `url: file:///tmp/slides.html`. Never navigate an existing page to a `file://` URL.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `TEMPLATE.md` | Complete Reveal.js HTML template, all slide type patterns, content chunking rules |
+| `TROUBLESHOOTING.md` | Failure diagnosis table: symptoms, causes, fixes |

@@ -1,0 +1,132 @@
+---
+title: "/create-skill"
+description: Builds new Claude Code skills following harness engineering best practices — table-of-contents architecture, golden rules, self-review loops, and progressive disclosure.
+---
+
+Scaffolds a complete Claude Code skill from scratch. The skill must be a map, not a manual — a concise entrypoint, structured reference files, hard rules, and feedback loops. Applies harness engineering best practices throughout.
+
+## Invocation
+
+```text
+/create-skill [skill purpose or domain]
+```
+
+## Workflow
+
+<Steps>
+  <Step title="Understand the domain">
+    Ask what the skill does, when it should trigger, what tools and output it produces. List the exact phrases a user would say — and the phrases that should NOT trigger it. Do not design until the purpose is clear.
+
+    See `DESIGN.md` for the full domain analysis checklist.
+  </Step>
+
+  <Step title="Design the architecture">
+    Decide the file structure: what goes in `SKILL.md` versus reference files. `SKILL.md` is the table of contents — 50–100 lines of content. All detail belongs in reference files, one file per concern.
+
+    See `DESIGN.md` for the two-level rule and content-splitting guide.
+  </Step>
+
+  <Step title="Write the metadata">
+    Write the `name` and `description` fields in YAML frontmatter. The description is the single most important line — it determines when Claude loads the skill. Write it as a search index entry: third-person, keyword-rich, with explicit trigger conditions.
+
+    See `WRITING.md` for the description formula and keyword coverage guidelines.
+  </Step>
+
+  <Step title="Write SKILL.md">
+    Write numbered workflow steps (one line each, with a pointer to the relevant reference file), the self-review checklist, the golden rules, and the reference file index. No inline code blocks. No long explanations.
+
+    See `WRITING.md` for the four required sections and writing rules.
+  </Step>
+
+  <Step title="Write reference files">
+    Write detailed guidance, code patterns, templates, and examples — one file per concern. Keep each file under 500 lines. Every reference file must be linked from `SKILL.md` with a one-line summary.
+
+    See `WRITING.md` for reference file structure and what belongs in each.
+  </Step>
+
+  <Step title="Evaluate">
+    Test the skill with real prompts across four categories: explicit invocation, implicit invocation, contextual prompts, and negative controls. Verify progressive disclosure works — reference files load only when needed.
+
+    See `EVALUATION.md` for the full verification protocol and quality rubric.
+  </Step>
+
+  <Step title="Iterate">
+    Use the skill on a real task. Observe where Claude hesitates, asks unnecessary questions, or produces inconsistent output. Fix the scaffolding at the source — not the symptoms. Re-evaluate.
+
+    See `EVALUATION.md` for the iteration table mapping issue types to fix locations.
+  </Step>
+</Steps>
+
+<Note>
+  The `description` field in skill YAML frontmatter is the single most important line in any skill. Claude selects skills based on description alone — if the keywords a user would say are absent, the skill will never trigger.
+</Note>
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- `SKILL.md` is under 100 lines of content (excluding frontmatter)
+- `SKILL.md` has zero inline code blocks — all code is in reference files
+- `description` is specific, third-person, and includes trigger keywords
+- Every reference file is linked from `SKILL.md` with a one-line summary
+- Golden rules are hard and mechanical — never "consider" or "try to"
+- Self-review checklist exists and is actionable
+- At least one feedback loop is encoded (test → verify → fix → re-test)
+- No vague quality language ("clean", "good", "appropriate") — replaced with concrete standards
+- Reference files are one level deep (`SKILL.md` → file, never file → file → file)
+- Skill works when invoked explicitly (`/skill-name`) AND when Claude triggers it from a matching request
+- Technology choices are boring and well-known — no exotic dependencies the agent will struggle with
+- Validation errors include remediation instructions — not just "invalid", but what's wrong and how to fix it
+- All domain knowledge lives in the skill files — nothing assumed from external context
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. SKILL.md is a map">
+    `SKILL.md` tells Claude what to do and where to find details. It does not contain the details itself. If you're writing a code block in `SKILL.md`, it belongs in a reference file.
+  </Accordion>
+
+  <Accordion title="2. Description is discovery">
+    Claude picks skills from description alone. If the description doesn't contain the keywords a user would say, the skill won't trigger. Write it as if you're writing a search index entry.
+  </Accordion>
+
+  <Accordion title="3. Golden rules prevent drift">
+    Every skill must encode 3–8 hard mechanical rules specific to its domain. These are the guardrails that keep output consistent across runs. Use imperative language: "Never", "Always", "Must".
+  </Accordion>
+
+  <Accordion title="4. Feedback loops are the product">
+    A skill without a verification step is a suggestion, not a skill. Every skill must have at least one cycle of: do → check → fix. The check must be concrete — run a command, verify a file, inspect output.
+  </Accordion>
+
+  <Accordion title="5. Diagnose, don't retry">
+    When the agent gets stuck, the skill must tell it how to figure out WHY, not just to "try again". Include a failure diagnosis table or triage protocol with symptom → cause → fix entries.
+  </Accordion>
+
+  <Accordion title="6. Concrete beats abstract">
+    "Use a clean design" produces slop. "Define CSS variables on `:root`, use `system-ui` font stack, add hover states to interactive elements" produces consistent output. Replace every adjective with a specification.
+  </Accordion>
+
+  <Accordion title="7. Progressive disclosure saves context">
+    Only `SKILL.md` loads on trigger. Reference files load when Claude reads them. Put expensive content — long examples, full APIs, code templates — in reference files.
+  </Accordion>
+
+  <Accordion title="8. Boring technology is better technology">
+    Skills must prefer composable, stable, well-known tools and APIs that are well-represented in training data. When a dependency is opaque or brittle, reimplement the needed subset rather than fighting upstream behavior.
+  </Accordion>
+
+  <Accordion title="9. Promote rules from docs to code">
+    When a documented instruction keeps being violated, encode it as a validation function, a structural test, or a linter — not a stronger-worded paragraph. Executable rules enforce themselves. Write error messages that explain what's wrong AND how to fix it so the agent can self-correct.
+  </Accordion>
+
+  <Accordion title="10. If it's not in the skill files, it doesn't exist">
+    The agent can only see what's in the skill directory. Knowledge in external docs, chat threads, or your head is invisible to the system. Every constraint, convention, and pattern must live in the skill files or it will be ignored.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|-----------|
+| `DESIGN.md` | How to analyze a domain, design file structure, apply progressive disclosure |
+| `WRITING.md` | How to write metadata, `SKILL.md` body, reference files, golden rules, and checklists |
+| `EVALUATION.md` | How to test skills with real prompts, positive/negative/implicit cases, and the quality rubric |

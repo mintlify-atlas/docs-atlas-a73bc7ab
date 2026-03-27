@@ -1,97 +1,63 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Claude Skills"
+description: "Reusable slash-command workflows that make Claude Code reliable on complex multi-step tasks."
 ---
 
-## Setting up
+Claude Skills is a library of structured workflows — called **skills** — that you invoke with a single slash command in Claude Code. Each skill encodes domain knowledge, step-by-step processes, quality gates, and self-review checklists so Claude handles complex tasks reliably, every time.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Clone the repo and link skills to your Claude Code config in under two minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Run your first skill and understand how the slash-command system works.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Browse All Skills" icon="grid" href="/skills/ship-it">
+    Explore 20+ skills across building, research, visualization, and debugging.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Create a Skill" icon="wand-magic-sparkles" href="/skills/create-skill">
+    Learn how to build your own skills using harness engineering best practices.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What skills solve
 
-Everything you need to create world-class documentation.
+Claude Code is powerful out of the box, but complex tasks — scaffolding a Python library, running multi-dimensional research, diagnosing flaky tests — require careful prompting and domain knowledge that gets lost between sessions. You end up re-explaining workflows, catching the same mistakes, and missing the same steps.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+Skills fix that. Each skill is a directory of markdown files that Claude loads as context when you invoke it. The main `SKILL.md` defines workflow steps, golden rules, and a self-review checklist. Additional reference files cover specific phases, loaded only when needed.
 
-## Need inspiration?
+<CardGroup cols={2}>
+  <Card title="Building & Shipping" icon="hammer" href="/skills/ship-it">
+    Ship product ideas end-to-end, scaffold Python libraries, initialize GitHub repos with CI/CD, and build board games.
+  </Card>
+  <Card title="Research & Design" icon="magnifying-glass" href="/skills/deep-research">
+    Multi-dimensional research, adversarial design review, gap finding, spec writing, and competitive analysis.
+  </Card>
+  <Card title="Visualization" icon="chart-bar" href="/skills/chart">
+    Render interactive charts, diagrams, slide decks, tables, and Gantt timelines live in the browser.
+  </Card>
+  <Card title="Debugging & Quality" icon="bug" href="/skills/flaky-test-diagnoser">
+    Diagnose flaky tests with structured experiments and scan codebases for 24 production readiness items.
+  </Card>
+</CardGroup>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+## How it works
+
+<Steps>
+  <Step title="Install skills">
+    Clone the repository and symlink the skills directory (or individual skills) into `~/.claude/skills/`.
+  </Step>
+  <Step title="Invoke a skill">
+    Type a slash command in Claude Code — for example `/deep-research` or `/ship-it`. Claude loads the skill's context automatically.
+  </Step>
+  <Step title="Claude follows the workflow">
+    The skill's `SKILL.md` guides Claude through numbered phases, quality gates, and a self-review checklist. No additional prompting needed.
+  </Step>
+  <Step title="Get reliable output">
+    Every skill encodes golden rules and feedback loops so output is consistent across sessions, regardless of context drift.
+  </Step>
+</Steps>
+
+<Note>
+  Skills live in `~/.claude/skills/` and are available in every Claude Code session. You can use the entire library or symlink only the skills you need.
+</Note>

@@ -1,0 +1,127 @@
+---
+title: "/diagram"
+description: Renders interactive, draggable node-and-edge diagrams live in the browser using Cytoscape.js.
+---
+
+Renders interactive, draggable diagrams in the browser using Cytoscape.js from nodes and edges found in the conversation context. The output is always a live HTML file — never a static image. Nodes are draggable, and the canvas supports scroll-to-zoom and pan.
+
+Use this skill when you want to visualize, diagram, draw, or render a graph, flowchart, dependency tree, architecture diagram, or any node-and-edge structure.
+
+## Invocation
+
+```text
+/diagram [describe the diagram you want]
+```
+
+**Examples:**
+
+```text
+/diagram architecture diagram for a microservices backend
+/diagram flowchart for the user onboarding process
+/diagram dependency graph for this Python package
+/diagram entity relationship diagram for the orders schema
+```
+
+## Workflow
+
+<Steps>
+  <Step title="Extract nodes and edges">
+    Read labels, connections, and any grouping or color hints from the user's request or conversation context.
+  </Step>
+
+  <Step title="Assign colors and positions">
+    Choose a color scheme and set x/y coordinates for a readable layout. Layout patterns are defined in `TEMPLATE.md`.
+  </Step>
+
+  <Step title="Write the HTML file">
+    Write a complete self-contained file to `/tmp/diagram.html` using the Cytoscape.js template.
+  </Step>
+
+  <Step title="Open in browser">
+    Call `mcp__chrome-devtools__new_page` with `url: file:///tmp/diagram.html`.
+  </Step>
+
+  <Step title="Wait for render">
+    Call `mcp__chrome-devtools__wait_for` on a string that appears in the legend or a node label. Timeout 10000ms.
+  </Step>
+
+  <Step title="Take screenshot">
+    Call `mcp__chrome-devtools__take_screenshot` and verify nodes are visible and not overlapping.
+  </Step>
+
+  <Step title="Fix and reload if broken">
+    If the screenshot shows problems, edit `/tmp/diagram.html`, then call `mcp__chrome-devtools__navigate_page` with `type: reload`.
+  </Step>
+</Steps>
+
+## Use cases
+
+<CardGroup cols={3}>
+  <Card title="Architecture diagrams" icon="sitemap">
+    Map services, databases, queues, and external dependencies in a system design or infrastructure overview.
+  </Card>
+
+  <Card title="Flowcharts" icon="arrow-right-arrow-left">
+    Visualize decision trees, approval flows, onboarding sequences, and any branching process.
+  </Card>
+
+  <Card title="Dependency graphs" icon="diagram-project">
+    Show package dependencies, module imports, or data pipeline stages with directed edges.
+  </Card>
+</CardGroup>
+
+<Note>
+  The rendered diagram is interactive: drag nodes to rearrange, scroll to zoom, and drag the background to pan. The Cytoscape.js CDN (`cytoscape.min.js` v3.29.2) loads entirely in the browser.
+</Note>
+
+## Self-review checklist
+
+Before delivering, the skill verifies all of the following:
+
+- Screenshot shows all nodes with readable text — no overflow, no overlap
+- Solid edges are solid, dashed edges are dashed (stored as `dashed: 'yes'`, not `dashed: true`)
+- `cy.fit(cy.elements(), 60)` is the last line of the script
+- CDN URL is exactly `https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.29.2/cytoscape.min.js`
+- Legend matches the color scheme used in the diagram
+- Hint text `drag nodes · scroll to zoom · drag background to pan` is present
+- No node has `width` or `height` set to `label` — always explicit pixel values
+- `wait_for` is called before `take_screenshot`
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Never use boolean edge attributes">
+    Cytoscape selectors do not reliably match boolean data values. Always store edge style flags as strings: `dashed: 'yes'` or `dashed: 'no'`. Use selector `edge[dashed = "yes"]`.
+  </Accordion>
+
+  <Accordion title="2. Never render to PNG">
+    Always write `/tmp/diagram.html` and open it in the browser. Static images cannot be dragged or zoomed by the user.
+  </Accordion>
+
+  <Accordion title="3. Always call cy.fit last">
+    `cy.fit(cy.elements(), 60)` must be the final line in the script block. Without it, the diagram may render off-screen or at wrong zoom.
+  </Accordion>
+
+  <Accordion title="4. Always use new_page for first open">
+    Use `mcp__chrome-devtools__new_page` with `url: file:///tmp/diagram.html`. Only use `navigate_page` with `type: reload` for subsequent reloads.
+  </Accordion>
+
+  <Accordion title="5. Always wait before screenshotting">
+    Call `wait_for` on a text string that appears after Cytoscape renders (legend text or a node label). Never call `take_screenshot` immediately after `new_page`.
+  </Accordion>
+
+  <Accordion title="6. Never set node dimensions to label">
+    Always use explicit pixel widths and heights (e.g. `width: 200px`, `height: 80px`). The `label` value causes unpredictable sizing.
+  </Accordion>
+
+  <Accordion title="7. Always use text-wrap: wrap with text-max-width">
+    Without these, long labels overflow node boundaries invisibly.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `TEMPLATE.md` | Complete Cytoscape.js HTML template, color palette, layout patterns for common diagram types |
+| `TROUBLESHOOTING.md` | Failure diagnosis table: symptoms, causes, fixes |

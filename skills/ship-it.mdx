@@ -1,0 +1,116 @@
+---
+title: "/ship-it"
+description: Takes a product idea through a 6-phase pipeline — Spec, Design, Build, Test, Integrate, Package — to produce a shippable project with tests, docs, and packaging.
+---
+
+Transforms a validated product idea into a complete, shippable project through a 6-phase pipeline with parallel subagents and quality gates. Each phase must pass its gate before the next phase begins. Handles TypeScript, Python, or Node.js projects end-to-end.
+
+## Invocation
+
+```text
+/ship-it [product idea or spec]
+```
+
+## Phases
+
+<Steps>
+  <Step title="Spec">
+    Write a formal, unambiguous specification from the idea description.
+
+    - Identifies ambiguities and resolves them before any code is written
+    - Produces `SPEC.md` covering: problem, target user, core features (MVP), non-goals, tech stack, success criteria, and API/CLI/library interface
+    - **Quality gate:** user must approve `SPEC.md` before Phase 2 begins — no auto-advance
+  </Step>
+
+  <Step title="Design">
+    Architect the project: file structure, module boundaries, API contracts, and data models.
+
+    - Produces `DESIGN.md` with a complete file tree, dependency graph, module responsibilities, and typed interfaces
+    - A dedicated critic subagent reviews the design and may reject it up to 2 times
+    - **Quality gate:** critic subagent approval required before build begins
+  </Step>
+
+  <Step title="Build">
+    Implement all modules in parallel using subagents, one per component.
+
+    - Project skeleton (directory structure, `package.json`/`pyproject.toml`, shared types) is scaffolded first and verified to compile
+    - Modules are built in dependency-order waves: independent modules in the same wave build in parallel (max 5 concurrent subagents)
+    - Each component gets a coder subagent and an independent reviewer subagent — reviewer may reject up to 2 times per component
+    - **Quality gate:** every wave must compile (`npx tsc --noEmit` or equivalent) before the next wave starts
+  </Step>
+
+  <Step title="Test">
+    Write and run tests for every public function and every error path.
+
+    - Tests are written alongside implementation; every public function has at least one test, every error path has a negative test
+    - Test failures trigger a fix loop capped at 5 iterations
+    - **Quality gate:** all tests pass (`npm test` / `pytest` / equivalent exits 0) — non-negotiable
+  </Step>
+
+  <Step title="Integrate">
+    Assemble components, verify imports resolve, and run the full build.
+
+    - Components are wired together; import paths and module boundaries are verified
+    - Integration issues are fixed before packaging
+    - **Quality gate:** `npm run build` or equivalent succeeds with zero errors
+  </Step>
+
+  <Step title="Package">
+    Generate documentation, packaging metadata, and verify a clean install.
+
+    - Produces: `README.md` (one-liner, install, usage, configuration), `LICENSE`, `package.json`/`pyproject.toml`, CLI entry point (if applicable), `.gitignore`
+    - Git repository is initialized
+    - **Quality gate:** project runs from a clean install — `rm -rf node_modules && npm install && npm run build && npm test` (or equivalent) must pass
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- `SPEC.md` exists and covers: problem, target user, core features, non-goals, success criteria
+- `DESIGN.md` exists and covers: file tree, module boundaries, data models, API contracts
+- Design was reviewed by critic subagent (not just self-approved)
+- Every source file was reviewed by a reviewer subagent (not just written and shipped)
+- All tests pass (`npm test` / `pytest` / equivalent exits 0)
+- Build succeeds (`npm run build` / `tsc` / equivalent exits 0)
+- Project runs from clean install: `rm -rf node_modules && npm install && npm run build && npm test` passes
+- README has: one-liner, install instructions, usage example, configuration
+- No hardcoded secrets, API keys, or credentials in source files
+- No placeholder/TODO/FIXME left in shipped code (search and verify)
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Spec before code">
+    Never write implementation code before `SPEC.md` and `DESIGN.md` are complete and reviewed. Design errors caught early cost 10x less than design errors caught during build.
+  </Accordion>
+
+  <Accordion title="2. Every file gets a reviewer">
+    No source file ships without a reviewer subagent checking it. The reviewer is independent from the coder — never review your own code.
+  </Accordion>
+
+  <Accordion title="3. Tests are not optional">
+    Every public function has at least one test. Every error path has a negative test. The test phase gate (all tests pass) is non-negotiable.
+  </Accordion>
+
+  <Accordion title="4. Fix loops have caps">
+    Every fix loop (design critic, code reviewer, test fixer) has a maximum iteration count. If the cap is hit, stop and report what failed — do not loop forever.
+  </Accordion>
+
+  <Accordion title="5. Parallel where independent, sequential where dependent">
+    Components without dependencies on each other build in parallel. Components with dependencies build in dependency order. Never parallelize dependent work.
+  </Accordion>
+
+  <Accordion title="6. Clean install is the final gate">
+    The project must work from `rm -rf node_modules && npm install && npm run build && npm test` (or equivalent). If it doesn't, it's not shippable.
+  </Accordion>
+
+  <Accordion title="7. Subagents get full context">
+    Every subagent receives `SPEC.md`, `DESIGN.md`, and the specific files it needs. Never send a subagent to implement a module without the design doc.
+  </Accordion>
+
+  <Accordion title="8. Fail loudly, not silently">
+    If a quality gate fails, report exactly what failed and why. Do not silently skip gates or mark them as passed when they didn't.
+  </Accordion>
+</AccordionGroup>

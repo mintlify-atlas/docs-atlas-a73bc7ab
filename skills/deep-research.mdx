@@ -1,0 +1,235 @@
+---
+title: "/deep-research"
+description: Systematic multi-dimensional research on any topic using parallel agents with orthogonal dimension coverage, source quality tiers, and spot-checked fact verification.
+---
+
+Systematically explores a topic using parallel agents across applicable orthogonal dimensions (WHO / WHAT / HOW / WHERE / WHEN / WHY / LIMITS). Unlike a quick research brief, this skill provides structured multi-dimensional coverage with source quality tiers, round-by-round cost gates, and risk-stratified fact verification. Coverage is bounded by a user-controlled round budget; the final report honestly characterises what was covered and what wasn't.
+
+## Invocation
+
+```text
+/deep-research [seed topic or question]
+```
+
+**Optional flag:**
+
+```text
+/deep-research [topic] --auto
+```
+
+The `--auto` flag skips all interactive round gates and runs to `max_rounds`. Use it for unattended runs. There is no cost circuit-breaker in `--auto` mode — set an appropriate `max_rounds` before starting.
+
+## Model tier strategy
+
+Three tiers balance cost and quality. The coordinator (main session) always handles synthesis and gap detection — these are never delegated.
+
+| Tier | Model | Used for | Est. cost / agent |
+|------|-------|----------|-----------------|
+| Scout | `haiku` | Depth ≥ 2 directions, low priority, low-stakes verification | ~$0.05 |
+| Researcher | `sonnet` | Depth 0–1 high/medium, all seed directions | ~$0.30–0.60 |
+| Deep Dive | `opus` | Re-exploration only when `exhaustion_score ≤ 2` | ~$3–5 |
+
+**Tier selection logic (applied at spawn time):**
+
+```python
+if direction.depth == 0:                              # → Researcher (sonnet)
+elif direction.depth == 1 and priority == "high":     # → Researcher (sonnet)
+elif direction.depth == 1 and priority == "medium":   # → Scout (haiku)
+elif direction.depth >= 2:                            # → Scout (haiku)
+elif re_exploration and exhaustion_score <= 2:        # → Deep Dive (opus)
+else:                                                 # → Scout (haiku)
+```
+
+**Expected cost for a full run:** ~$15–25 (vs ~$170 with all-Opus).
+
+## Pre-run scope declaration
+
+Before any agents are spawned the skill shows you a scope declaration and waits for your confirmation:
+
+```text
+Deep research: "{seed}"
+Interpretation: [one-sentence interpretation]
+Applicable dimensions (N): [list]
+Initial directions: {count}
+Estimated rounds needed: {low}–{high}
+Suggested max_rounds: {recommendation with rationale}
+Wall-clock estimate: {time range}
+
+Set max_rounds [default {recommendation}]: _
+Continue? [y/N]
+```
+
+`max_rounds` is a **soft gate** — when reached with a non-empty frontier the skill prompts you to extend. You can always add rounds. Only `--auto` converts it to a hard stop. The absolute ceiling is `max_rounds × 3`.
+
+**Recommendation formula:**
+
+```python
+min_rounds = ceil(initial_directions / 6)  # 6 agents per round
+recommended = ceil(min_rounds * 1.5)       # 50% expansion for sub-directions
+recommended = max(recommended, 8)          # floor of 8 rounds
+```
+
+## Workflow
+
+<Steps>
+  <Step title="Phase 0: Seed validation">
+    Before any directions are generated, three checks fire in sequence:
+
+    - **Safety check** — if the seed requests harmful or illegal research, refuse immediately.
+    - **Ambiguity check** — if the seed has multiple plausible interpretations, confirm which one to use before proceeding.
+    - **Input validation** — if the seed is too thin (a single proper noun without context), ask for more scope.
+  </Step>
+
+  <Step title="Phase 1: Seed expansion">
+    Assess which dimensions from WHO / WHAT / HOW / WHERE / WHEN / WHY / LIMITS are applicable using the multi-context table:
+
+    | Dimension | Historical/social | Technical/scientific | Policy |
+    |-----------|-------------------|---------------------|--------|
+    | WHO | Key people, institutions | Research groups, standards bodies | Agencies, legislators |
+    | WHAT | Events, phenomena | Techniques, architectures | Policies, regulations |
+    | HOW | Mechanisms, causation | Algorithms, protocols | Enforcement, incentives |
+    | WHERE | Geography, settings | Deployment environments | Jurisdictions |
+    | WHEN | Chronology, sequence | Maturity level, adoption windows | Legislative calendar |
+    | WHY | Motivations, drivers | Tradeoffs, design constraints | Political economy |
+    | LIMITS | Constraints, boundaries | Theoretical bounds, known failures | Enforcement gaps |
+
+    Generates 2–4 directions per applicable dimension plus cross-dimensional intersections. Maximum 25 initial directions.
+
+    - 0 applicable dimensions → error; ask user to clarify
+    - 1–2 applicable dimensions → warn user; ask to confirm before proceeding
+    - 3+ applicable dimensions → proceed
+
+    Shows the pre-run scope declaration (see above) and waits for your `max_rounds` input.
+  </Step>
+
+  <Step title="Phase 2: Initialize state">
+    Creates `deep-research-state.json` and `deep-research-findings/` in the current working directory. Writes a lock file `deep-research-{run_id}.lock` before spawning any agents.
+  </Step>
+
+  <Step title="Phase 3: Research rounds">
+    Each round fires a **prospective gate** before any agents are spawned:
+
+    ```text
+    About to run Round N: {frontier_size} directions queued
+    Estimated tokens this round: ~{estimate} ({cost_estimate})
+    Total spent so far: ~{running_total}
+    Continue? [y/N/redirect:<focus>]
+    ```
+
+    Per round:
+    1. Pop up to 6 highest-priority directions from the frontier
+    2. Select model tier for each direction
+    3. Spawn agents in parallel with an 8-minute timeout
+    4. Collect all new directions from completed agents **before** deduplication
+    5. Apply dedup against the stable pre-round frontier snapshot
+    6. Update the coordinator summary
+    7. Run round-level dimension re-assessment (corrects cold-start errors)
+    8. Increment round counter
+
+    **Timed-out directions** are marked `timed_out` and are not re-queued.
+  </Step>
+
+  <Step title="Phase 4: Fact verification">
+    After the final research round, before synthesis:
+
+    - **Claim extraction** — identify the top N significant factual claims (N = min(20, total)). Risk-stratified sampling prioritises: single-source primary → numerical/statistical → contested → corroboration candidates.
+    - **Citation spot-check** — fetch each sampled URL; confirm the attributed claim appears in the source text. For numerical claims: compare exact numbers — semantic similarity is not accepted.
+    - **Corroboration independence check** — for claims cited by 3+ agents, verify the sources are from different organisations, dates, and methodologies.
+
+    <Warning>
+      Paywalled sources are classified as "unverifiable — full text inaccessible." Accessible sources where the claim cannot be found are flagged as "citation mismatch — manual verification required."
+    </Warning>
+  </Step>
+
+  <Step title="Phase 5: Synthesize">
+    Three-pass synthesis:
+
+    1. **Mini-syntheses** — each agent writes a mini-synthesis in its findings file.
+    2. **Theme extraction** — coordinator reads mini-syntheses only (not raw findings). A theme is valid only if it requires findings from 2+ distinct dimensions.
+    3. **Final report** — writes `deep-research-report.md`.
+
+    After the report is written, the skill offers an optional deep-qa pass:
+
+    ```text
+    QA pass available. Run deep-qa on this report? [y/N]
+    ```
+
+    If you accept, `/deep-qa` audits the report for citation accuracy, logical consistency, coverage gaps, and counter-evidence gaps.
+  </Step>
+
+  <Step title="Phase 6: Termination check">
+    The run terminates when **any** of these is true (first condition wins):
+
+    1. **User stops** — you chose N at a round gate
+    2. **Coverage plateau** — no new dimensions for 3 consecutive rounds AND all frontier items have `exhaustion ≥ 4`
+    3. **Budget soft gate** — `max_rounds` reached with non-empty frontier → you are prompted to extend
+    4. **Frontier empties** — all directions explored (possible since direction reporting is optional)
+
+    The final report includes a termination label: User-stopped / Coverage plateau / Budget limit / Convergence.
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering output, verify **all** of the following:
+
+- State file is valid JSON after every round
+- No direction has status `in_progress` after a round completes
+- Every findings file has: Findings, Source Table, Mini-Synthesis, New Directions (or "terminal node"), and Exhaustion Assessment
+- No direction explored more than 2 times
+- Prospective gate was shown before each round (or `--auto` was set)
+- Coordinator summary updated each round in structured format, not freeform
+- Fact verification ran before final synthesis
+- Final report includes Spot-Check Sample Results section with explicit limitations
+- Final report uses a termination label from the defined vocabulary
+- Two separate confidence scores in the report: Coverage % and Evidence Quality
+- Model tier correctly selected for each agent
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Check state before spawning">
+    Never spawn an agent without reading the state file first. Deduplicate every direction before adding it to the frontier.
+  </Accordion>
+
+  <Accordion title="2. Direction reporting is optional">
+    A terminal node is valid output. Do NOT force agents to invent new directions to fill the slot.
+  </Accordion>
+
+  <Accordion title="3. Frontier is priority-ordered">
+    Always pop the highest-priority direction first. Agent-discovered (child) directions receive a +2 depth bonus over same-tier siblings at the same depth level.
+  </Accordion>
+
+  <Accordion title="4. Two explorations maximum">
+    Each direction can be explored at most twice. A third attempt is skipped without re-queuing.
+  </Accordion>
+
+  <Accordion title="5. Prospective gate fires before spend">
+    Never spawn agents without showing the user a cost estimate first — unless `--auto` is set.
+  </Accordion>
+
+  <Accordion title="6. Coordinator context is bounded">
+    Never accumulate raw findings in the coordinator. Use the structured coordinator summary to keep context size predictable.
+  </Accordion>
+
+  <Accordion title="7. Every finding needs a source">
+    Web search URLs required for every claim. Training-data-only findings are not accepted.
+  </Accordion>
+
+  <Accordion title="8. Always specify model tier explicitly">
+    Never let agents default to a tier. Unintentional Opus usage is the primary source of cost spirals.
+  </Accordion>
+
+  <Accordion title="9. Verify numerics manually">
+    Flag all numerical claims in the spot-check. LLM number verification is unreliable — exact comparison is required.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `DFS.md` | Dimension discovery, cross-product expansion, exhaustion map, frontier priority ordering, termination logic |
+| `STATE.md` | State file schema, direction schema, deduplication contract |
+| `SYNTHESIS.md` | Fact verification protocol, coordinator summary format, final report structure |
+| `FORMAT.md` | Final report format, coverage report, spot-check results section |

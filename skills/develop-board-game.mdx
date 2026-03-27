@@ -1,0 +1,164 @@
+---
+title: "/develop-board-game"
+description: Creates a faithful digital board game as a single-file HTML/JS/CSS application with accurate rules, multiplayer support, and Playwright tests.
+---
+
+Builds a complete, faithful digital version of a board game as a single HTML file. Handles rules implementation, turn management, multiplayer (local hot-seat, split-tab, online P2P), UI layout, and automated testing via Playwright.
+
+## Invocation
+
+```text
+/develop-board-game [game name or description]
+```
+
+<Note>
+  The entire game — markup, styles, and logic — is delivered as a single `.html` file. No build step, no framework, no dependencies beyond PeerJS (CDN) for online multiplayer. This constraint is intentional: it makes the game trivially portable and immediately runnable by opening the file in any browser.
+</Note>
+
+## Workflow
+
+<Steps>
+  <Step title="Research rules">
+    Understand every rule before writing a single line of code. All rules are listed in a comment block at the top of the HTML file.
+
+    Do not start coding until you can explain every rule — including edge cases, special turns, win conditions, and draw conditions.
+  </Step>
+
+  <Step title="Choose multiplayer modes">
+    Decide which multiplayer modes the game supports using the decision tree in the reference files. Every game gets a lobby screen regardless of modes supported.
+
+    Supported modes:
+    - **Hot-seat** — players share one screen and pass the device
+    - **Split-tab** — each player opens the game in a separate browser tab (uses `BroadcastChannel`)
+    - **Online P2P** — players connect over the network (uses PeerJS from CDN)
+  </Step>
+
+  <Step title="Define game state">
+    Design a single JSON-serializable object as the source of truth. The UI reads from state — never the reverse.
+
+    State must be complete enough that any rule can be verified without inspecting the DOM. `render_game_to_text()` (the Playwright test API) returns the local player's view of this state.
+  </Step>
+
+  <Step title="Implement rules engine">
+    Build these five pure functions — no side effects, no DOM reads:
+
+    ```javascript
+    getValidMoves(state)       // returns all legal moves for the current player
+    applyMove(state, move)     // returns new state after move; never mutates input
+    checkWinCondition(state)   // returns winner/draw/null
+    getNextPlayer(state)       // returns next player's id
+    getPlayerView(state, id)   // returns what player `id` can see (hides opponent info)
+    ```
+
+    Every move entering the system — from UI clicks, `performMove()`, or network messages — passes through `getValidMoves` before `applyMove`. No shortcuts.
+  </Step>
+
+  <Step title="Build lobby UI">
+    Implement the lobby screen with mode selection, player configuration, and (for online mode) the room code flow. The lobby is the first screen every player sees.
+  </Step>
+
+  <Step title="Build game UI">
+    Implement the board, player panel, game log, status bar, and controls.
+
+    All colors, sizes, and spacing are defined as CSS custom properties on `:root`. Components reference variables — never hardcoded hex values. No magic numbers in game logic: board dimensions, scoring values, player limits, and turn counts come from named constants.
+  </Step>
+
+  <Step title="Implement turn management">
+    Handle mode-specific behavior:
+    - Hot-seat: screen transition between players
+    - Online: host-authoritative state broadcast; guests receive `getPlayerView` output, never raw state
+    - AI: move delay to feel natural
+  </Step>
+
+  <Step title="Wire test APIs">
+    Expose these three functions on `window` for Playwright automation:
+
+    ```javascript
+    window.render_game_to_text()       // returns string: current player's view of game state
+    window.performMove(move)           // executes a move; throws on invalid move with reason
+    window.startGame(config)           // starts a new game with the given config object
+    ```
+
+    `performMove` error messages must include what was wrong AND what was expected:
+    `"Invalid move: {row: 9, col: 0} — row must be 0-7"`
+  </Step>
+
+  <Step title="Test with Playwright">
+    Run Playwright after every meaningful change — save, test, verify before writing more code.
+
+    <Note>
+      Playwright tests load the single HTML file directly (`file://` protocol) — no server needed. Tests cover: a complete game playthrough, at least 3 illegal move rejections, win/loss/draw conditions, and hidden-info verification (opponent data must not appear in `render_game_to_text()` output).
+    </Note>
+
+    When a test fails: read the error, identify the root cause (rule logic, UI wiring, or the test itself), fix the specific problem. Do not blindly change code and re-run.
+  </Step>
+
+  <Step title="Self-review loop">
+    After tests pass, review your own work against the checklist below. Fix any issues and re-test. Repeat until all checks pass.
+  </Step>
+
+  <Step title="Track progress">
+    Maintain `progress.md` with quality grades for each area: rules accuracy, multiplayer, UI, tests. Update after each milestone.
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+After each major milestone, verify **all** of the following. If any fail, fix before proceeding:
+
+- Every rule from step 1 is implemented (cross-check the comment block at the top of the file)
+- Invalid moves are rejected with clear error messages (test at least 3 illegal moves)
+- Win/loss/draw conditions trigger correctly (play to completion at least once)
+- `render_game_to_text()` returns enough info to verify any rule without inspecting the DOM
+- No console errors during a full game playthrough
+- Board looks intentional, not default/generic
+- Each multiplayer mode works independently
+- Hidden info is never leaked (check `getPlayerView` output for opponent data)
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. State is the only truth">
+    UI reads from state, never the reverse. `render(state)` is a pure function of state. No game logic reads from the DOM.
+  </Accordion>
+
+  <Accordion title="2. Rules engine is pure">
+    `applyMove(state, move)` takes state and move, returns new state. No side effects. No randomness except where the game demands it (dice), and even then, the result is stored in state.
+  </Accordion>
+
+  <Accordion title="3. Validate at boundaries">
+    Every move entering the system — from UI clicks, `performMove()`, or network messages — passes through `getValidMoves` before `applyMove`. No shortcuts. No "trust the caller."
+  </Accordion>
+
+  <Accordion title="4. Never expose hidden info">
+    `getPlayerView(state, playerId)` is the only way to derive what a player sees. The host never sends raw state to guests. `render_game_to_text()` returns the local player's view, not the full state.
+  </Accordion>
+
+  <Accordion title="5. One change, one test">
+    Never accumulate untested changes. After every meaningful edit: save → test → verify. If tests fail, fix before writing more code.
+  </Accordion>
+
+  <Accordion title="6. Diagnose, don't retry">
+    When a test fails, do not blindly change code and re-run. Read the error. Identify the root cause. Determine if the issue is in the rule logic, the UI wiring, or the test itself. Fix the specific problem.
+  </Accordion>
+
+  <Accordion title="7. No magic numbers in game logic">
+    Board dimensions, scoring values, player limits, and turn counts must come from named constants or `config`, never inline literals scattered through code.
+  </Accordion>
+
+  <Accordion title="8. CSS variables for all visual theming">
+    Colors, sizes, and spacing are defined as CSS custom properties on `:root`. Components reference variables, never hardcoded hex values.
+  </Accordion>
+
+  <Accordion title="9. Boring technology only">
+    Vanilla JS, HTML, CSS. No frameworks, no build steps, no exotic dependencies. The one exception is PeerJS from CDN for online multiplayer. If you need functionality from a library, reimplement the needed subset directly.
+  </Accordion>
+
+  <Accordion title="10. Centralize invariants">
+    Extract shared logic into named functions. If the same validation or computation appears in two places, it must be one function called from both. Duplicated logic drifts.
+  </Accordion>
+
+  <Accordion title="11. Error messages are remediation instructions">
+    Every validation rejection must say what was wrong AND what was expected: `"Invalid move: {row: 9, col: 0} — row must be 0-7"` not `"Invalid move"`. The agent and test runner use these messages to self-correct.
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,146 @@
+---
+title: "/timeline"
+description: Renders interactive Gantt-style timelines and roadmaps live in the browser using vis-timeline.
+---
+
+Renders interactive Gantt-style timelines and roadmaps in the browser using vis-timeline from phases, milestones, and tasks found in the conversation context. The output is a self-contained HTML file with zoomable, scrollable swimlanes.
+
+Use this skill when you mention timeline, Gantt chart, roadmap, project plan, phases, milestones, schedule, sprints, quarters, or ask when things happen or want to show a schedule.
+
+## Invocation
+
+```text
+/timeline [describe the project, phases, or schedule]
+```
+
+**Examples:**
+
+```text
+/timeline Q1–Q3 product roadmap with three workstreams
+/timeline Gantt chart for the API migration project
+/timeline six-month onboarding plan with milestones
+/timeline historical timeline of AI model releases from 2020 to 2024
+```
+
+## Data format
+
+Describe your timeline in natural language. The skill extracts:
+
+- **Items** — individual tasks, phases, or milestones with start and end dates
+- **Groups** — workstreams or swimlanes that items belong to
+
+Vague time references are automatically converted to ISO dates:
+
+| Input | Converted to |
+|-------|--------------|
+| "Q1" | `2026-01-01` – `2026-03-31` |
+| "month 1–3" | `YYYY-01-01` – `YYYY-03-31` |
+| "next sprint" | Two-week window from today |
+
+<Warning>
+  Always provide enough date context (year, quarter, or month) for accurate conversion. Ambiguous references default to the current year.
+</Warning>
+
+## Workflow
+
+<Steps>
+  <Step title="Extract items and groups">
+    Identify tasks/phases (items) and workstreams/swimlanes (groups) from context.
+  </Step>
+
+  <Step title="Convert all dates to ISO strings">
+    Translate every vague time reference to `"YYYY-MM-DD"` format. Default base date is today.
+  </Step>
+
+  <Step title="Assign group colors">
+    Give each group a `className` and matching CSS color class from the palette in `TEMPLATE.md`.
+  </Step>
+
+  <Step title="Write the HTML file">
+    Write a complete self-contained file to `/tmp/timeline.html` using the vis-timeline template.
+  </Step>
+
+  <Step title="Open in browser">
+    Call `mcp__chrome-devtools__new_page` with `url: file:///tmp/timeline.html`.
+  </Step>
+
+  <Step title="Wait for render">
+    Call `mcp__chrome-devtools__wait_for` on a group label string that appears after vis-timeline renders. Timeout 10000ms.
+  </Step>
+
+  <Step title="Take screenshot">
+    Call `mcp__chrome-devtools__take_screenshot` and verify all items and group labels are visible.
+  </Step>
+
+  <Step title="Fix and reload if broken">
+    If the screenshot shows problems, edit `/tmp/timeline.html`, then call `mcp__chrome-devtools__navigate_page` with `type: reload`.
+  </Step>
+</Steps>
+
+## Use cases
+
+<CardGroup cols={3}>
+  <Card title="Project roadmaps" icon="map">
+    Lay out a quarterly or annual roadmap with multiple workstreams as swimlanes and milestones as point items.
+  </Card>
+
+  <Card title="Gantt charts" icon="bars-progress">
+    Visualize overlapping tasks, dependencies, and phase durations for engineering or operations projects.
+  </Card>
+
+  <Card title="Historical timelines" icon="clock-rotate-left">
+    Plot events, releases, or milestones across a historical span to show chronological progression.
+  </Card>
+</CardGroup>
+
+## Self-review checklist
+
+Before delivering, the skill verifies all of the following:
+
+- Screenshot shows all group swimlane labels in the left panel
+- Screenshot shows colored item bars spanning correct date ranges
+- No items are invisible or rendering as unstyled plain text (CSS CDN loaded)
+- Timeline container has explicit pixel height — vis-timeline did not collapse to 0px
+- All `start`/`end` values in the items array are ISO date strings `"YYYY-MM-DD"`, not relative strings
+- Every item has a `group` property matching a group id
+- Dark theme CSS overrides are present and text is readable on dark background
+- `wait_for` was called before `take_screenshot`
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Never use relative date strings">
+    Always convert vague references ("month 1", "Q3", "next sprint") to explicit ISO date strings `"YYYY-MM-DD"` before passing to vis-timeline. Relative strings will throw a parse error or render at wrong positions.
+  </Accordion>
+
+  <Accordion title="2. Always set explicit pixel height on the container div">
+    vis-timeline collapses to 0px without it. Use `height: 500px; width: 100%;` at minimum.
+  </Accordion>
+
+  <Accordion title="3. Always include the CSS CDN link tag">
+    Without the vis-timeline CSS CDN, items render as unstyled plain text with no bar shape or color.
+  </Accordion>
+
+  <Accordion title="4. Use stack: true when items overlap in time">
+    `stack: false` causes overlapping items in the same group to render on top of each other, hiding all but the topmost. Default to `stack: true` for safety.
+  </Accordion>
+
+  <Accordion title="5. Always assign every item to a group">
+    Ungrouped items pile into a single unlabelled row, defeating swimlane separation.
+  </Accordion>
+
+  <Accordion title="6. Always call wait_for on a group label before screenshotting">
+    The group label only appears after vis-timeline fully renders. Screenshotting before it appears captures a blank or partially-rendered page.
+  </Accordion>
+
+  <Accordion title="7. Always use new_page for first open">
+    Use `mcp__chrome-devtools__new_page` with `url: file:///tmp/timeline.html`. Use `navigate_page` with `type: reload` only for subsequent fixes.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `TEMPLATE.md` | Complete vis-timeline HTML template, date conversion patterns, color class system, group/item data format |
+| `TROUBLESHOOTING.md` | Failure diagnosis table: symptoms, causes, fixes |

@@ -1,0 +1,197 @@
+---
+title: "Skill architecture"
+description: How skills are structured, loaded, and executed in Claude Code — the file layout, loading model, and harness engineering principles that keep output consistent.
+---
+
+Every Claude Code skill follows the same structural pattern: a concise entrypoint (`SKILL.md`) that acts as a table of contents, plus a set of focused reference files that load progressively. This page explains why the architecture is designed this way and how each piece works.
+
+## File structure
+
+A skill is a directory. The layout is always two levels deep:
+
+```text
+my-skill/
+├── SKILL.md          # Entrypoint — always loaded on trigger
+├── REFERENCE-A.md    # Detail file — loaded when Claude reads it
+├── REFERENCE-B.md    # Detail file — loaded when Claude reads it
+└── scripts/          # Optional: executable scripts and templates
+    └── validate.sh
+```
+
+Reference files never point to other reference files. The rule is strict: `SKILL.md` → reference file, and no deeper. Nested references cause Claude to partially read files and miss information.
+
+<CardGroup cols={3}>
+  <Card title="SKILL.md" icon="map">
+    The map. Workflow steps, self-review checklist, golden rules, and reference file index. Always loaded on trigger. Kept under 100 lines.
+  </Card>
+  <Card title="Reference files" icon="file-text">
+    The details. Code patterns, templates, step instructions, failure diagnosis tables, examples. Loaded only when Claude needs them. Under 500 lines each.
+  </Card>
+  <Card title="Golden rules" icon="shield">
+    Hard mechanical rules specific to the skill's domain. Encoded in `SKILL.md` so they're visible on every invocation. Prevent output drift between runs.
+  </Card>
+</CardGroup>
+
+## SKILL.md as a map
+
+`SKILL.md` has exactly four sections:
+
+1. **Title and one-line purpose** — one sentence describing what the skill builds and how
+2. **Workflow** — numbered steps, one line each, each pointing to a reference file
+3. **Self-review checklist** — objectively verifiable conditions to check before delivering
+4. **Reference file index** — a table linking every reference file with a one-line summary
+
+The key constraint: `SKILL.md` contains no code blocks and no multi-paragraph explanations. If content requires more than one line, it belongs in a reference file. This keeps the initial context load small and focused.
+
+| Content type | Where it goes |
+|---|---|
+| Workflow steps (one line each) | `SKILL.md` |
+| Self-review checklist | `SKILL.md` |
+| Golden rules | `SKILL.md` |
+| Reference file index | `SKILL.md` |
+| Code patterns and templates | Reference file |
+| Detailed step instructions | Reference file |
+| Examples and samples | Reference file |
+| Testing methodology | Reference file |
+| Failure diagnosis tables | Reference file |
+| Domain-specific reference | Reference file |
+
+## YAML frontmatter
+
+Every skill begins with YAML frontmatter that defines how Claude discovers and invokes it:
+
+```yaml
+---
+name: create-skill
+description: Creates well-structured Claude Code skills from scratch. Use when the user
+  asks to build, design, or scaffold a new skill, slash command, or agent capability.
+  Applies harness engineering best practices — table-of-contents architecture, golden
+  rules, self-review loops, progressive disclosure, and evaluation.
+argument-hint: "[skill purpose or domain]"
+---
+```
+
+| Field | Purpose |
+|---|---|
+| `name` | The slash command identifier. Lowercase, hyphens only, max 64 characters. |
+| `description` | How Claude discovers the skill. Written in third person. Used as a search index. |
+| `argument-hint` | Displayed as a hint when the user types the slash command. |
+
+The `description` field is the most consequential. Claude selects which skill to load based on description alone — before reading any other part of the file. A description that omits the keywords a user would naturally say will never trigger.
+
+**Formula for descriptions:** `[What it does]. Use when [trigger conditions].`
+
+```yaml
+# Correct: specific, keyword-rich, third-person, includes triggers
+description: Researches a market and renders an interactive comparison matrix in the
+  browser. Use when the user asks for a competitive analysis, market map, or feature
+  comparison.
+
+# Wrong: vague, no triggers
+description: Helps with research tasks.
+
+# Wrong: first person
+description: I can research markets for you.
+```
+
+## Reference files
+
+Each reference file covers exactly one concern. The filename is itself a signal — Claude uses it to decide whether to read the file at all.
+
+```text
+# Good names — content is obvious from the filename
+TESTING.md
+VISUAL.md
+ARCHITECTURE.md
+FAILURE-DIAGNOSIS.md
+
+# Bad names — could mean anything
+DETAILS.md
+MORE.md
+PART2.md
+REFERENCE.md
+```
+
+Reference files follow a consistent structure:
+
+```text
+# Topic Name
+
+Brief (1-2 sentence) purpose statement explaining what this file covers and when to read it.
+
+## Section 1
+[Content]
+
+## Section 2
+[Content]
+```
+
+The opening purpose statement matters — Claude may read just the first few lines to decide whether to continue into the file. Files over 100 lines should include a table of contents at the top.
+
+**Size limit:** 500 lines per file. If a file approaches this limit, split it into two focused files.
+
+## Progressive disclosure
+
+Skills are designed to load only the context needed at each phase:
+
+| Phase | What Claude loads | Token cost |
+|---|---|---|
+| Startup | `name` + `description` from every installed skill | ~100 tokens per skill |
+| Trigger | Full `SKILL.md` body | The full file |
+| As-needed | Individual reference files, one at a time | Only when read |
+
+This means expensive content — full code templates, long examples, complete API references — lives in reference files and never loads unless the task actually needs it. A skill with 5 reference files of 300 lines each costs nothing extra if only 2 of those files are relevant to the user's request.
+
+The one-line summary next to each reference file in the index is what enables selective loading. Claude reads the summary and decides whether the file is relevant before fetching it.
+
+## Golden rules
+
+Golden rules are hard mechanical rules specific to a skill's domain. They appear in `SKILL.md` so they're visible on every invocation — not buried in a reference file that might not be read.
+
+Properties of effective golden rules:
+
+- **Imperative voice:** "Never", "Always", "Must", "Do not" — not "Consider", "Try to", "Prefer"
+- **Mechanical:** an agent can follow the rule without exercising judgment
+- **Domain-specific:** each rule prevents a failure mode identified during the design phase
+- **Count:** 3–8 rules per skill — fewer means insufficient guardrails, more means the skill is overspecified
+
+Golden rules are derived from failure modes. For each failure mode identified during design, write a rule that prevents it:
+
+| Failure mode | Golden rule |
+|---|---|
+| Agent puts all content in `SKILL.md` | "`SKILL.md` is a map. If you're writing a code block in `SKILL.md`, it belongs in a reference file." |
+| Agent writes vague descriptions | "Description is discovery. If the description doesn't contain the keywords a user would say, the skill won't trigger." |
+| Agent skips testing | "Every skill must have at least one feedback loop: do → check → fix." |
+| Output differs between runs | "Replace every adjective with a specification." |
+
+## Self-review checklists
+
+Every skill includes a self-review checklist — a list of objectively verifiable conditions the agent checks after completing the workflow. This is the primary feedback loop mechanism.
+
+Effective checklist items are concrete and binary:
+
+```text
+# Correct — objectively verifiable
+- [ ] SKILL.md is under 100 lines of content (excluding frontmatter)
+- [ ] All 5 test categories pass: init, moves, win, negative, visual
+- [ ] No console errors during a full run
+
+# Wrong — subjective
+- [ ] Code is clean
+- [ ] Tests pass
+- [ ] Output looks good
+```
+
+A checklist that never catches anything is not checking hard enough. Target 6–12 items, sized so that a real run will occasionally fail one.
+
+## Harness engineering principles
+
+The architecture above is an expression of harness engineering — the practice of encoding constraints, conventions, and feedback loops into skill files rather than relying on the agent's general judgment.
+
+Five core principles:
+
+1. **Map, not manual.** `SKILL.md` is a table of contents. Details live in reference files. Agents navigate to what they need.
+2. **Concrete beats abstract.** Every quality standard is a specification, not an adjective. "Functions under 30 lines" is a standard. "Clean code" is not.
+3. **Feedback loops are the product.** A skill without a verification step is a suggestion. Every skill must encode at least one do → check → fix cycle.
+4. **Rules promote to code.** When a documented instruction keeps being violated, encode it as a validation function or linter — not a stronger-worded paragraph. Executable rules enforce themselves.
+5. **If it's not in the files, it doesn't exist.** The agent can only see what's in the skill directory. Every constraint, convention, and pattern must be written down or it will be ignored.

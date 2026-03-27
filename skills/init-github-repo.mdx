@@ -1,0 +1,164 @@
+---
+title: "/init-github-repo"
+description: Initializes a Git repository with a JTBD-focused README, CI/CD workflow, license, .gitignore, and SEO-optimized GitHub description and topics.
+---
+
+Initializes a complete GitHub repository by detecting the project type and generating a jobs-to-be-done (JTBD) focused README, CI/CD pipeline, license, `.gitignore`, and SEO-optimized repo metadata.
+
+## Invocation
+
+```text
+/init-github-repo
+```
+
+Run from the root of an existing project. The skill reads your project metadata files to determine language, package name, license, and test commands — it never hardcodes assumptions.
+
+## What it produces
+
+<CardGroup cols={2}>
+  <Card title="JTBD README" icon="file-text">
+    Opens with the problem the user has, not what the tool does. Includes badges with correct owner/repo slugs, quick start, install instructions, and usage example.
+  </Card>
+  <Card title="CI/CD workflow" icon="git-branch">
+    `.github/workflows/ci.yml` matched to the detected language — Python (pytest matrix), Node.js (npm test matrix), Rust (cargo test + clippy), or Go (go test + vet).
+  </Card>
+  <Card title="SEO-optimized metadata" icon="search">
+    Repo description under 100 characters with no trailing period. 5–10 topics including the language name, problem domain, and searchable keywords.
+  </Card>
+  <Card title="Profile README update" icon="user">
+    Clones the user's profile repo and adds the new repo to the correct section alphabetically. Private repos get a lock indicator.
+  </Card>
+</CardGroup>
+
+## Workflow
+
+<Steps>
+  <Step title="Detect project type">
+    Read project metadata files to determine language, package manager, and test command. Checked in order:
+
+    | File | Language | Test command |
+    |------|----------|--------------|
+    | `pyproject.toml` | Python | `pytest` |
+    | `package.json` | Node.js | `npm test` |
+    | `Cargo.toml` | Rust | `cargo test` |
+    | `go.mod` | Go | `go test ./...` |
+
+    If no marker file is found, the user is asked for the language.
+  </Step>
+
+  <Step title="Initialize git">
+    Run `git init` if not already a repo. Ask the user for their preferred name and email and set them at the repo level (not global).
+  </Step>
+
+  <Step title="Create .gitignore">
+    Generate a language-appropriate `.gitignore`. For Python: `__pycache__/`, `*.egg-info/`, `.venv/`, `.pytest_cache/`, and more. For Node.js: `node_modules/`, `dist/`, `.env`, `coverage/`, and more.
+  </Step>
+
+  <Step title="Create LICENSE">
+    Detect the license from project metadata (`[project].license` in `pyproject.toml`, `license` in `package.json`). Defaults to Apache-2.0 if not specified.
+  </Step>
+
+  <Step title="Write README.md">
+    Generate a JTBD-focused README. The first paragraph answers "what job does this do for me?" — not "what is this tool."
+
+    <Warning>
+      Never write a feature bullet list as the first section. The README opens with the problem the user has, then presents the solution.
+    </Warning>
+
+    Every badge URL is constructed from `gh repo view --json nameWithOwner` — no placeholder values like `username/repo`.
+  </Step>
+
+  <Step title="Create CI/CD workflow">
+    Generate `.github/workflows/ci.yml` matched to the detected language. Example for Python:
+
+    ```yaml
+    name: CI
+
+    on:
+      push:
+        branches: [main]
+      pull_request:
+        branches: [main]
+
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            python-version: ["3.10", "3.11", "3.12"]
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-python@v5
+            with:
+              python-version: ${{ matrix.python-version }}
+          - name: Install dependencies
+            run: pip install -e ".[dev]"
+          - name: Run tests
+            run: pytest -v
+    ```
+
+    <Note>
+      PyPI publish workflows are kept in a separate `publish.yml` file — never combined with `ci.yml`. PyPI's trusted publisher config requires the workflow filename to match exactly what was registered.
+    </Note>
+  </Step>
+
+  <Step title="Create GitHub repo and push">
+    Create the remote with `gh repo create`, set the SEO-optimized description and topics, then make the initial commit and push.
+
+    - Description: under 100 characters, no trailing period, answers "why would I click this?"
+    - Topics: include the language name, problem domain keyword, and 2–3 searchable terms
+  </Step>
+
+  <Step title="Update profile README">
+    Clone the user's GitHub profile repo (`GH_USER/GH_USER`) if not present locally, add the new repo to the correct section in alphabetical order, commit, and push.
+  </Step>
+
+  <Step title="Verify">
+    Confirm `gh repo view` shows the correct description and topics, the profile README is updated, and all badges render correctly.
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- README first paragraph answers "what job does this do for me?" — not "what is this tool"
+- README has zero feature bullet lists before the problem statement
+- All badge URLs contain the correct GitHub owner/repo and package name
+- Mintlify docs badge is included if the project has Mintlify docs
+- CI workflow runs the correct test command for the detected language
+- `.gitignore` includes language-specific entries
+- LICENSE file matches the license field in project metadata
+- Repo description is under 100 characters with no trailing period
+- Repo has 5–10 topics that include the language name, problem domain, and 2–3 SEO keywords
+- Git `user.name` and `user.email` are set at repo level
+- `gh repo view` succeeds and shows the description
+- Profile README contains the new repo in the correct section, alphabetically ordered
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. JTBD first, features never">
+    The README opens with the problem the user has, not what the tool does. "You have X problem" before "This tool does Y." Never write a feature bullet list as the first section.
+  </Accordion>
+
+  <Accordion title="2. Badges must resolve">
+    Every badge URL must contain the actual GitHub owner/repo slug and package name. Never use placeholder values like `username/repo`. Verify by constructing the URL from `gh repo view --json nameWithOwner`.
+  </Accordion>
+
+  <Accordion title="3. Detect, never assume">
+    Read project metadata files to determine language, package name, license, and test commands. Never hardcode "Python" or "MIT" without checking the actual files first.
+  </Accordion>
+
+  <Accordion title="4. Description is a headline">
+    Under 100 characters, no trailing period, no implementation details. It answers "why would I click this?" not "what technology does this use?"
+  </Accordion>
+
+  <Accordion title="5. Topics are SEO">
+    Include the programming language, the problem domain keyword, and 2–3 terms someone would search for on GitHub to find this project. Never use generic tags like "awesome" or "tool."
+  </Accordion>
+
+  <Accordion title="6. Git identity is explicit">
+    Always ask the user for their preferred name/email and set it at the repo level (not global) when initializing a new repo. If the user declines, let the global config apply.
+  </Accordion>
+</AccordionGroup>

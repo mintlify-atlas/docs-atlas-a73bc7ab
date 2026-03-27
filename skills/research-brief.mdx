@@ -1,0 +1,114 @@
+---
+title: "/research-brief"
+description: Produces a structured, evidence-based research brief on any topic. Searches broadly, seeks counterevidence, and synthesises findings into a scannable document with cited sources.
+---
+
+Produces a structured, evidence-based research brief by searching broadly across angles, explicitly seeking counterevidence, and synthesising findings into a scannable document with inline citations. Every claim in the brief links to a URL retrieved by a web search in the session — no training-data citations.
+
+Use this skill when the user asks to research, summarise, or brief a topic — including "what do we know about", "give me a brief on", "background on", "landscape analysis", "due diligence on", or "deep dive into".
+
+## Invocation
+
+```text
+/research-brief [topic or question]
+```
+
+## Output format
+
+The brief is delivered directly in the conversation as markdown with these sections:
+
+- **Executive Summary** — 2–4 sentences, scannable in under 30 seconds
+- **Key Findings** — 5–10 numbered items, each with an inline citation and an implication statement
+- **Gaps and Risks** — at least 2 items; mandatory even if no risks surface
+- **Recommended Next Steps** — 3–5 specific and actionable items
+- **Sources** — every URL cited in the brief
+
+## Workflow
+
+<Steps>
+  <Step title="Clarify scope">
+    Narrow the vague topic to a specific research question. If unclear, ask **one clarifying question** before proceeding. Do not ask multiple questions.
+  </Step>
+
+  <Step title="Search broadly">
+    Run 3–5 web searches covering different angles:
+    - Definition and background
+    - Recent developments
+    - Key players and organisations
+    - Use cases and adoption
+    - Data, metrics, and benchmarks
+  </Step>
+
+  <Step title="Search for counterevidence">
+    Run at least one search explicitly targeting "[topic] problems", "[topic] failures", or "[topic] criticism".
+
+    <Warning>
+      A brief with no risks found is incomplete, not thorough. If no risks surface, state that explicitly in the Gaps and Risks section and explain why — but never omit the section.
+    </Warning>
+  </Step>
+
+  <Step title="Read the sources">
+    Review the content returned by each search. For each result, note the claim, its source URL, and its implication for the research question.
+  </Step>
+
+  <Step title="Synthesise">
+    Identify patterns, conflicts, and gaps across all sources. Note what is well-evidenced, contested, or missing. Each finding must state what the evidence **means** for the research question — not merely restate what the source says.
+  </Step>
+
+  <Step title="Write the brief">
+    Produce the brief in the standard output format. Deliver directly in the conversation as markdown.
+  </Step>
+
+  <Step title="Self-review">
+    Verify every claim in Key Findings has an inline citation. Verify Executive Summary is 4 sentences or fewer. Fix any violations before delivering.
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- Executive Summary is exactly 2–4 sentences — no more
+- Key Findings contains 5–10 numbered items
+- Every Key Finding has an inline citation in the form `[source name](url)`
+- Every citation URL was actually returned by a web search in this session
+- At least one web search covered criticisms, failures, or risks of the topic
+- Gaps and Risks section present with at least 2 items
+- Recommended Next Steps contains 3–5 specific and actionable items
+- Sources section lists every URL cited in the brief
+- No finding is a bare fact — each states an implication ("X is true, which means Y")
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. No finding without a source">
+    Every item in Key Findings must have an inline citation linking to a URL returned by web search in this session. Never assert a claim without a citation.
+  </Accordion>
+
+  <Accordion title="2. Always search for counterevidence">
+    Run at least one search explicitly targeting problems, failures, or criticism. A brief with no risks found is incomplete.
+  </Accordion>
+
+  <Accordion title="3. Executive Summary is 4 sentences maximum">
+    If it runs longer, cut it. The summary must be scannable in under 30 seconds.
+  </Accordion>
+
+  <Accordion title="4. Never cite a URL you have not retrieved">
+    Only cite sources whose content was returned by a web search tool call in this session. Never cite from memory or training data.
+  </Accordion>
+
+  <Accordion title="5. Findings are implications, not facts">
+    Each finding must state what the evidence means for the research question, not merely restate what the source says.
+  </Accordion>
+
+  <Accordion title="6. Gaps and Risks is mandatory">
+    A brief without this section is not complete. If no risks surface, state that explicitly and explain why — but never omit the section.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `FORMAT.md` | Complete brief template, section-by-section writing guidance, citation format, and example finding structure |
+| `SEARCH.md` | Search strategy: how to choose queries, how many to run, how to cover counterevidence, and how to handle conflicting sources |

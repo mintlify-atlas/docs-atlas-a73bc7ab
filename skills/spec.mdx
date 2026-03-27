@@ -1,0 +1,120 @@
+---
+title: "/spec"
+description: Turns a conversation, idea, or discussion into a structured technical specification saved as a markdown file. Covers problem statement, goals, API/interface design, data model, failure modes, and success metrics.
+---
+
+Transforms a conversation, idea, or raw description into a complete, structured technical specification saved to `spec-[slug].md` in the current working directory. Covers the full spec surface: problem statement, goals, non-goals, API/interface design, data model, failure modes, and measurable success criteria.
+
+Use this skill when the user asks to write a spec, technical spec, design doc, RFC, API design, or implementation spec — or says "spec this out", "turn this into a spec", or "document this".
+
+## Invocation
+
+```text
+/spec [feature or system to specify]
+```
+
+## Workflow
+
+<Steps>
+  <Step title="Extract the core idea">
+    Identify what system, feature, or API is being specified from the conversation or argument. If the input is a long discussion thread, extract the core intent rather than summarising every message.
+  </Step>
+
+  <Step title="Ask clarifying questions if needed">
+    If the problem, scale, or constraints are unclear, ask at most **3 targeted questions** before proceeding. Prefer stating assumptions and moving forward over interrogating the user.
+
+    <Tip>
+      If you have enough to write a reasonable Problem Statement and Goals, start there. You can resolve remaining open questions in the Open Questions section.
+    </Tip>
+  </Step>
+
+  <Step title="Draft problem statement and goals">
+    Write the Problem Statement (3–6 sentences of prose — no bullet points) and Goals / Non-Goals sections first. Do not proceed to design until these are agreed.
+
+    Goals must be **concrete and measurable** — not "improve performance" but "p99 latency < 500ms".
+    Non-Goals must have at least 2 items. They define the boundary of the work.
+  </Step>
+
+  <Step title="Design the API / interface surface">
+    Specify the public interface: functions, endpoints, decorators, or CLI commands. Use code blocks for every interface definition.
+
+    ```python
+    def process_batch(
+        items: list[Item],
+        *,
+        timeout_ms: int = 5000,
+        max_retries: int = 3,
+    ) -> BatchResult: ...
+    ```
+  </Step>
+
+  <Step title="Design the data model">
+    Define key data structures, schemas, and artifact shapes. Use code blocks. Never describe a data model in prose when a type definition or schema is clearer.
+  </Step>
+
+  <Step title="Identify failure modes">
+    Enumerate what can go wrong and how each is mitigated. The Failure Modes section is **mandatory** — a spec without it is incomplete. Format as a table:
+
+    | Failure | Probability | Impact | Mitigation |
+    |---------|-------------|--------|------------|
+    | Worker crash mid-batch | Medium | High | Checkpoint after each item; resume from last checkpoint |
+  </Step>
+
+  <Step title="Write the full spec">
+    Assemble all sections in the standard output format from `FORMAT.md`. Print the full spec to the conversation and save it to `spec-[slug].md` in the current working directory.
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- Problem Statement is 3–6 sentences of prose — no bullet points
+- Goals are concrete and measurable (numbers, percentages, latency targets)
+- Non-Goals section present with at least 2 items
+- API/Interface section contains actual code blocks — not prose descriptions of code
+- Data Model section contains actual code blocks — not prose descriptions
+- Failure Modes table present with Failure, Probability, Impact, and Mitigation columns
+- Success Metrics are measurable (numbers, percentages, latency targets)
+- Open Questions section present — even if empty, the section must appear
+- File saved as `spec-[slug].md` in the current working directory
+- No section contains "TBD" — unknowns go in Open Questions instead
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Problem before design">
+    Always write the Problem Statement and Goals before designing anything. A design without a problem statement will be wrong.
+  </Accordion>
+
+  <Accordion title="2. Non-Goals are mandatory">
+    Never skip the Non-Goals section. It defines the boundary of the work and is as important as Goals.
+  </Accordion>
+
+  <Accordion title="3. Failure Modes are mandatory">
+    A spec with no Failure Modes table is incomplete. Happy-path-only specs fail in production.
+  </Accordion>
+
+  <Accordion title="4. Success Metrics are mandatory">
+    Without measurable criteria there is no definition of done. Vague metrics such as "users are happy" are rejected — replace with numbers.
+  </Accordion>
+
+  <Accordion title="5. Never write TBD in API or Data Model">
+    If the design is unknown, write the open question in the Open Questions section. The spec body must contain actual designs, not placeholders.
+  </Accordion>
+
+  <Accordion title="6. Always save the spec to a file">
+    Print to conversation AND write `spec-[slug].md`. Specs that exist only in the conversation are lost.
+  </Accordion>
+
+  <Accordion title="7. Ask at most 3 clarifying questions">
+    If the problem is truly ambiguous, ask — but never more than 3 at once. Prefer proceeding with stated assumptions over interrogating the user.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `FORMAT.md` | Complete spec template, section-by-section writing guidance, good vs bad examples, and an abbreviated example spec |
+| `DESIGN.md` | How to extract design from conversation, API-first design principle, handling ambiguity, making key decisions explicit |

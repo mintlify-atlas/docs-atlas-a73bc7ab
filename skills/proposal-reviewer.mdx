@@ -1,0 +1,127 @@
+---
+title: "/proposal-reviewer"
+description: Critically reviews project proposals, grant applications, and business plans. Fact-checks claims, maps the competitive landscape, identifies structural flaws, and delivers an honest viability assessment.
+---
+
+Critically reviews proposals by fact-checking claims against primary sources, mapping the competitive landscape, identifying structural flaws, and delivering an honest viability assessment with actionable recommendations. Every assertion in the review is backed by a source found during research.
+
+Use this skill when the user asks to review, critique, evaluate, or assess a proposal, pitch, grant application, or business plan for viability, competition, or flaws.
+
+## Invocation
+
+```text
+/proposal-reviewer [path/to/proposal or paste content]
+```
+
+## Workflow
+
+<Steps>
+  <Step title="Read the proposal">
+    Read the full document before any analysis. Identify every factual claim, cited statistic, named competitor, and stated assumption. Do not begin fact-checking until the full document is read.
+  </Step>
+
+  <Step title="Extract claims">
+    Build a structured list of every verifiable claim — numbers, CVEs, funding amounts, star counts, market statistics, named research. This list drives the fact-check pass.
+  </Step>
+
+  <Step title="Fact-check in parallel">
+    Launch research agents to verify claims concurrently. Classify each claim as:
+
+    - **VERIFIED** — confirmed by a specific, cited primary source
+    - **PARTIALLY TRUE** — core claim holds but details differ
+    - **UNVERIFIABLE** — no primary source found; cannot confirm or deny
+    - **FALSE** — contradicted by a specific, cited source
+
+    <Warning>
+      If you cannot find a primary source, classify the claim as UNVERIFIABLE — never guess. "This appears to be accurate" is not a fact-check.
+    </Warning>
+  </Step>
+
+  <Step title="Map the competitive landscape">
+    Research incumbents, adjacent products, funded startups, open-source alternatives, and platform vendor roadmaps. The most dangerous competitors are the ones the proposal didn't mention — always search beyond what the proposal names.
+  </Step>
+
+  <Step title="Identify structural flaws">
+    Analyse business model, technical architecture, cost model, scope/timeline, team capacity, and sustainability. Classify every identified flaw as:
+
+    - **FIXABLE** — the proposal can be rewritten to address it; provide a specific recommendation
+    - **INHERENT RISK** — no amount of rewriting eliminates it; provide an honest assessment
+  </Step>
+
+  <Step title="Assess market timing and platform risk">
+    Determine whether the market window is open, closing, or closed. Identify platform vendors who could absorb this product, and assess whether the timing works in the proposal's favour.
+  </Step>
+
+  <Step title="Deliver the verdict">
+    Present findings in the structured output format: fact-check table, landscape summary, flaw-by-flaw analysis, viability assessment, and recommendations.
+
+    Viability verdict is one of:
+    - **VIABLE AS-IS**
+    - **VIABLE WITH CHANGES** (list them specifically)
+    - **NOT VIABLE** (explain why directly)
+    - **INSUFFICIENT INFORMATION**
+
+    <Note>
+      Distinguish the proposal from the idea. A good idea with a bad proposal gets recommendations. A bad idea gets honest feedback and a suggestion to explore alternatives.
+    </Note>
+  </Step>
+
+  <Step title="Rewrite if asked">
+    Only rewrite the proposal when the user **explicitly requests** it. The default output is analysis and recommendations, not a new draft.
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- Every verifiable claim in the proposal has a fact-check verdict with a cited source
+- At least 3 web searches performed per major claim category
+- Competitive landscape includes: direct competitors, adjacent products, platform vendors who could build this, and well-funded startups in the space
+- Every identified flaw classified as FIXABLE (with recommendation) or INHERENT RISK
+- Viability verdict is one of the four defined labels
+- No claim in the review itself is unverified — every assertion backed by a source found during research
+- Review addresses business model sustainability, not just technical feasibility
+- Competitors the proposal fails to mention are explicitly called out
+- Tone is direct and honest — no hedging with "perhaps" or "it might be worth considering"
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Verify before you judge">
+    Never assess a claim as true or false based on general knowledge. Search for every verifiable claim. If you cannot find a primary source, classify it as UNVERIFIABLE.
+  </Accordion>
+
+  <Accordion title="2. Show the evidence">
+    Every fact-check verdict must cite a specific source (URL, paper title, or publication name with date). "This appears to be accurate" is not a fact-check.
+  </Accordion>
+
+  <Accordion title="3. Separate fixable from fatal">
+    Every identified flaw must be classified as FIXABLE or INHERENT RISK. Never present a list of problems without this classification.
+  </Accordion>
+
+  <Accordion title="4. Never rewrite unprompted">
+    Only rewrite the proposal when the user explicitly asks. The default output is analysis and recommendations.
+  </Accordion>
+
+  <Accordion title="5. Research competitors the proposal doesn't mention">
+    The most dangerous competitors are the ones the author missed. Always search beyond what the proposal names.
+  </Accordion>
+
+  <Accordion title="6. Be honest about viability">
+    If the idea is not viable, say so directly. Do not soften a "no" into a "maybe with significant changes." If it is a maybe, specify exactly what changes would make it viable.
+  </Accordion>
+
+  <Accordion title="7. Distinguish the proposal from the idea">
+    A good idea with a bad proposal is different from a bad idea. A bad proposal with a good idea gets recommendations. A bad idea gets honest feedback.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `FACT-CHECK.md` | How to extract claims, classify them, verify with web search, and build the fact-check table |
+| `LANDSCAPE.md` | How to map competitors, assess market timing, identify platform risk, and find threats the proposal missed |
+| `STRUCTURAL.md` | How to analyse business model, technical architecture, cost model, scope/timeline, and sustainability |
+| `REWRITE.md` | How to rewrite a proposal addressing identified flaws while preserving what works |

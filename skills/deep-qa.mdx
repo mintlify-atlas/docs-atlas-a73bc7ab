@@ -1,0 +1,231 @@
+---
+title: "/deep-qa"
+description: Quality assurance on any artifact using parallel critic agents across artifact-type-aware QA dimensions. Produces a prioritised defect registry and QA report. Does not fix defects — surfaces them for human triage.
+---
+
+Systematically audits an existing artifact for defects using parallel critic agents across QA dimensions tailored to the artifact type. Supports documents, code, research reports, and skills/prompts. Unlike `/deep-design` (which designs and iterates) or `/deep-research` (which explores the web), `/deep-qa` takes an artifact as-is and finds what's wrong with it.
+
+**No spec drafting. No redesign. Find and report.**
+
+## Invocation
+
+```text
+/deep-qa [path/to/artifact]
+```
+
+**Optional flags:**
+
+```text
+/deep-qa [path] --type doc|code|research|skill
+/deep-qa [path] --auto
+/deep-qa --diff [ref]        # QA a git diff; ref defaults to HEAD~1
+/deep-qa --diff HEAD~3 --auto
+```
+
+`--diff` mode costs ~10% as much as a full-artifact QA and catches regressions in changed code and its immediate callers.
+
+## Artifact types
+
+| Type | Applies to | Required QA categories |
+|------|-----------|------------------------|
+| `doc` | Specs, design docs, RFCs, API docs, architecture docs | completeness, internal_consistency, feasibility, edge_cases |
+| `code` | Source code, system architecture descriptions | correctness, error_handling, security, testability |
+| `research` | Research reports, literature reviews, deep-research outputs | accuracy, citation_validity, logical_consistency, coverage_gaps |
+| `skill` | Claude skills, system prompts, agent specs, tool instructions | behavioral_correctness, instruction_conflicts, injection_resistance, cost_runaway_risk |
+
+If `--type` is not provided, the artifact type is inferred from content. If the inference is ambiguous, you are asked to confirm before proceeding (skipped under `--auto`).
+
+## Diff mode
+
+When `--diff [ref]` is present the artifact is built from the git diff rather than a full file:
+
+1. Runs `git diff {ref}` to extract changed files
+2. Finds callers of every added/modified function
+3. Builds a three-section artifact: the diff, caller context, and pre-existing surrounding code
+
+Four high-priority angles are automatically seeded in diff mode:
+- All new conditional branches (`if`/`elif`/`while`) — are False/None/empty branches safe?
+- All changed function signatures — do callers handle the new contract?
+- All new resource handles (subprocesses, file handles, locks) — are they always released?
+- All security-sensitive paths touched — what injection/bypass edge cases were introduced?
+
+## Workflow
+
+<Steps>
+  <Step title="Phase 0: Input validation">
+    Reads the artifact (file path or inline content) and writes it to `deep-qa-{run_id}/artifact.md`. Detects artifact type, warns if the artifact exceeds ~80k tokens (Haiku critics at depth 2+ may only see part of it), and performs a safety check for credentials or PII.
+
+    For `skill` type with a file path: companion files (`DIMENSIONS.md`, `FORMAT.md`, `STATE.md`, `SYNTHESIS.md`) in the same directory are automatically concatenated into `artifact.md`.
+
+    Shows the pre-run scope declaration and waits for your `max_rounds` input (skipped under `--auto`).
+  </Step>
+
+  <Step title="Phase 1: Dimension discovery">
+    Selects QA dimensions based on artifact type. Generates 2–4 critique angles per dimension plus 2–3 cross-dimensional angles. Required categories must each have at least one angle (assigned `CRITICAL` priority if uncovered after round 1). Frontier capped at 30 angles.
+
+    **max_rounds recommendation formula:**
+
+    ```python
+    min_rounds = ceil(initial_angles / 6)
+    recommended = ceil(min_rounds * 1.3)  # 30% expansion from agent-discovered sub-angles
+    recommended = max(recommended, 3)
+    recommended = min(recommended, 6)     # cap for typical artifacts
+    ```
+  </Step>
+
+  <Step title="Phase 2: Initialize state">
+    Creates the run directory:
+
+    ```text
+    deep-qa-{run_id}/
+    ├── state.json
+    ├── artifact.md
+    ├── critiques/
+    ├── angles/
+    ├── judge-inputs/
+    └── qa-report.md    (written at Phase 6)
+    ```
+
+    Writes `hard_stop = max_rounds × 2` to `state.json`. This value is **immutable** — no extension can exceed it.
+  </Step>
+
+  <Step title="Phase 3: QA rounds">
+    A hard stop check fires **unconditionally** at the start of every round before the prospective gate:
+
+    ```python
+    if current_round >= state.hard_stop:
+        # terminate immediately — no prompt, no extension offered
+    ```
+
+    The prospective gate (skipped under `--auto`) then shows:
+
+    ```text
+    About to run QA Round N: {frontier_size} angles queued
+    Critics this round: up to 6 | Potential judge agents: up to {frontier_pop × 5}
+    Estimated cost: ~${cost} ({running_total} spent so far)
+    Continue? [y/N/redirect:<focus>]
+    ```
+
+    Per round:
+    1. Pop up to 6 highest-priority angles
+    2. Write all data to files and **verify each write** before spawning agents
+    3. Spawn critic agents in parallel (120s timeout)
+    4. Collect new angles from all completed agents before deduplication
+    5. For each new defect: write to `judge-inputs/{defect_id}.md`, spawn an independent Haiku severity judge
+    6. Spawn a Haiku subagent to write a cumulative coordinator summary
+    7. Run coverage evaluation — generate `CRITICAL`-priority angles for any uncovered required category
+    8. Increment round
+
+    <Note>
+      After each severity judge completes, the critique file's declared `**QA Dimension:**` header is cross-checked against the angle's assigned dimension in `state.json`. A mismatch is flagged as a potential injection and does not count toward required category coverage.
+    </Note>
+  </Step>
+
+  <Step title="Phase 4: Fact verification (research type only)">
+    Runs for `artifact_type == "research"` before final synthesis; skipped entirely for other types.
+
+    Spawns a Haiku verification agent to:
+    - Extract the top N factual claims (N = min(20, total))
+    - Spot-check citation URLs — is the attributed claim present in the source text?
+    - For numerical claims: compare **exact numbers** — semantic similarity is not accepted
+
+    Output written to `deep-qa-{run_id}/verification.md`.
+  </Step>
+
+  <Step title="Phase 5: Termination check">
+    Evaluated in order; stops at the first true condition:
+
+    | Condition | Label |
+    |-----------|-------|
+    | User chose N at a gate | `User-stopped at round N` |
+    | Coverage plateau (2 rounds no new dimensions + all angles exhausted) | `Coverage plateau — frontier saturated` |
+    | `max_rounds` reached, user chose n | `Max Rounds Reached — user stopped` |
+    | `max_rounds` reached under `--auto` | `Max Rounds Reached` |
+    | Frontier empty + all required categories covered + 2 rounds no new dimensions | `Conditions Met` |
+    | Frontier empty before full coverage | `Convergence — frontier exhausted before full coverage` |
+    | Hard stop fires | `Hard stop at round N` |
+
+    <Warning>
+      The termination label "no defects remain" is never used. Termination means coverage is saturated, not that the artifact is defect-free.
+    </Warning>
+  </Step>
+
+  <Step title="Phase 6: Final QA report">
+    A Sonnet subagent writes `deep-qa-{run_id}/qa-report.md` using the coordinator summary, mini-syntheses, and `state.json` — not raw critique files.
+
+    If the report file is missing or empty after the subagent completes, the skill re-spawns once. If still missing, a minimal emergency report is written directly from `state.json`.
+
+    The report includes: severity-sorted defect registry, disputed defects, coverage assessment, honest caveats, open issues, files examined, and the invocation mode.
+  </Step>
+</Steps>
+
+## Integration with `/deep-design` and `/deep-research`
+
+Both skills offer an automatic QA pass after their final output is written. When invoked this way:
+
+- `--auto` is always set — all interactive gates are skipped
+- `--type` is always set by the parent (`doc` for `/deep-design`, `research` for `/deep-research`)
+- `run_id` takes the form `{parent_run_id}-qa`
+- QA report is written to `deep-qa-{parent_run_id}-qa/qa-report.md` — never into the parent's output directory
+- `max_rounds` defaults to 4 unless the parent specifies otherwise
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- State file is valid JSON after every round; `generation` counter incremented after every state write
+- No angle has status `in_progress` after a round completes
+- Every critique file has: Defects, Severity, Scenario, Root Cause, Mini-Synthesis, New Angles
+- Every critique file's declared `**QA Dimension:**` matches the angle's dimension in `state.json`
+- No angle explored more than 2 times
+- All required dimension categories have ≥1 explored angle per `state.json` `required_categories_covered`
+- Disputed defects documented in coordinator summary — not silently dropped
+- Final report does NOT read raw critique files
+- For `research` type: fact verification ran before synthesis
+- Termination label is from the Phase 5 label table — never "no defects remain"
+- `hard_stop` stored in `state.json` and never modified after initialization
+- All pre-spawn file writes verified non-empty before Agent tool call
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. QA is adversarial">
+    A critic that says "looks good" has failed. Every artifact has defects — find them.
+  </Accordion>
+
+  <Accordion title="2. Every defect needs a concrete scenario">
+    "This might be unclear" is not a defect. "A reader with context X but not Y will interpret section Z as [wrong meaning], causing [consequence]" is a defect.
+  </Accordion>
+
+  <Accordion title="3. Classify honestly">
+    Don't inflate minor defects to critical. Don't downgrade critical defects to minor. A 100% acceptance rate from a severity judge is evidence of failure.
+  </Accordion>
+
+  <Accordion title="4. No fixing — only reporting">
+    Suggested remediations are optional guidance. The artifact owner decides how to fix. The skill never modifies the artifact.
+  </Accordion>
+
+  <Accordion title="5. Critique what's missing">
+    The most dangerous defects are omissions — components referenced but not specified, error paths not defined, assumptions not stated.
+  </Accordion>
+
+  <Accordion title="6. Independence invariant">
+    The coordinator orchestrates; it does not evaluate. Severity classification is always delegated to independent judge agents.
+  </Accordion>
+
+  <Accordion title="7. Termination means coverage is saturated, not zero defects">
+    The report is honest about what wasn't covered. Never write "no defects remain" in a termination label.
+  </Accordion>
+
+  <Accordion title="8. Never suppress disputed defects">
+    Disputed defects are documented with their rationale, not silently dropped from the report.
+  </Accordion>
+
+  <Accordion title="9. Artifact type shapes dimensions">
+    Don't apply code security analysis to a research report. QA dimensions must match the artifact type.
+  </Accordion>
+
+  <Accordion title="10. Hard stop is unconditional">
+    The hard stop check fires before every round gate and cannot be bypassed, extended, or deferred by any means.
+  </Accordion>
+</AccordionGroup>

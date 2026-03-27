@@ -1,0 +1,220 @@
+---
+title: "/flaky-test-diagnoser"
+description: Systematically diagnoses why a test is flaky using multi-run experiments, isolation tests, ordering analysis, and timing analysis
+---
+
+Runs structured experiments to identify the root cause of a flaky test and produces a diagnosis report with a concrete fix recommendation. Use when a test is intermittent, non-deterministic, or randomly failing.
+
+## Invocation
+
+```text
+/flaky-test-diagnoser [test name or identifier]
+```
+
+**Examples:**
+
+```text
+/flaky-test-diagnoser tests/test_payments.py::test_charge_idempotency
+/flaky-test-diagnoser "UserService > should update profile on concurrent requests"
+/flaky-test-diagnoser com.example.OrderServiceTest#testProcessOrder
+```
+
+## Workflow
+
+<Steps>
+  <Step title="Detect test runner">
+    Identify the project's test framework and runner command by scanning config files in the project root.
+
+    Detection order: `pytest.ini` / `pyproject.toml` / `conftest.py` → Jest / Vitest / Mocha (`package.json`) → Gradle / Maven (`build.gradle`, `pom.xml`) → `go.mod` → `Cargo.toml` → `*.csproj` → RSpec / Minitest (`Gemfile`).
+
+    The detected runner determines the exact command templates used in all subsequent experiments.
+  </Step>
+
+  <Step title="Confirm flakiness">
+    Run the target test 10 times in isolation, record pass/fail per run, and compute the fail rate.
+
+    ```bash
+    # pytest example
+    for i in $(seq 1 10); do
+      echo "--- Run $i ---"
+      pytest "tests/test_payments.py::test_charge_idempotency" -v --tb=short 2>&1
+      echo "EXIT: $?"
+    done
+    ```
+
+    | Fail count | Interpretation | Next step |
+    |-----------|---------------|-----------|
+    | 0 of 10 | Possibly not flaky in this environment | Increase to 20 runs; ask user for CI context |
+    | 1–3 of 10 | Flakiness confirmed | Proceed to isolation |
+    | 4–7 of 10 | Highly flaky | Proceed to isolation |
+    | 8–10 of 10 | Likely consistently broken | Inform user; still run isolation to verify |
+  </Step>
+
+  <Step title="Isolation test">
+    Run the target test alone (5 runs), then with the full suite (5 runs), and compare pass rates.
+
+    | Isolated | In-suite | Interpretation | Next step |
+    |----------|----------|---------------|-----------|
+    | Always passes | Sometimes fails | Ordering-dependent | Proceed to ordering bisection |
+    | Sometimes fails | Sometimes fails | Not ordering-dependent | Skip ordering; proceed to timing |
+    | Sometimes fails | Always passes | Possible self-induced resource leak | Proceed to timing |
+    | Always fails | Always fails | Consistently broken — not flaky | Report as real bug |
+  </Step>
+
+  <Step title="Ordering analysis">
+    If the test passes in isolation but fails in-suite, bisect the test suite to find the specific test(s) that interfere with it.
+
+    Binary bisection is used — never one-by-one elimination:
+    1. List all tests before the target in execution order
+    2. Split into two halves; run each half + target (3 runs each)
+    3. Recurse into the half where the target fails
+    4. Repeat until a single interfering test is isolated
+    5. Confirm by running `INTERFERER + TARGET` 5 times
+
+    Each bisection step runs 3 times to account for inherent flakiness in the result.
+  </Step>
+
+  <Step title="Timing analysis">
+    Add timing instrumentation to detect race conditions, slow setup/teardown, and timeout sensitivity.
+
+    - Run the test 5 times with verbose duration output enabled
+    - Record setup time, test body time, and teardown time per run
+    - Compare parallel vs serial execution (disable workers with `--runInBand`, `-p no:xdist`, or `-parallel 1`)
+    - If the test stops flaking in serial mode, the root cause is parallel execution (shared state or resource contention)
+    - For Go projects, run `go test -race` to engage the built-in race detector
+  </Step>
+
+  <Step title="Environment analysis">
+    Check for external dependencies, parallel execution configuration, resource leaks, and non-determinism sources.
+
+    | Factor | How to check |
+    |--------|-------------|
+    | Parallelism | Read runner config for `workers`, `forks`, `parallel`, `--jobs` |
+    | CI vs local | Ask user whether flakiness differs between environments |
+    | Database | Check for test DB config, migrations, and per-test cleanup |
+    | Network | Grep test code for real HTTP URLs not routed to mocks |
+    | Filesystem | Grep for file operations and temp path usage |
+    | Time | Grep for time-dependent assertions or `sleep` calls |
+  </Step>
+
+  <Step title="Read the test code">
+    Read the failing test and its fixtures or setup functions, searching for known flakiness signals.
+
+    **Signals to search for:**
+    - `sleep`, `setTimeout`, `time.Sleep`, `Thread.sleep` — time-based synchronization
+    - `static`, `global`, hard-coded ports — shared mutable state
+    - `Math.random`, `random.random`, `uuid` — non-deterministic input
+    - `os.listdir`, `readdir`, `glob` in assertions — non-deterministic ordering
+    - `http://`, `https://` in test files — real external calls
+    - `open(` without context manager, `new FileInputStream` without try-with-resources — resource leaks
+  </Step>
+
+  <Step title="Classify root cause">
+    Assign one of the 6 root cause categories based on all experiment results. See [root cause categories](#root-cause-categories) below.
+
+    Assign confidence level:
+    - **HIGH** — at least 2 independent experiments confirm the category
+    - **MEDIUM** — 1 experiment confirms, consistent with code analysis signals
+    - **LOW** — experiments inconclusive; code analysis points to a probable cause
+
+    If no single category fits clearly, report the top two candidates with individual confidence levels and recommend additional experiments.
+  </Step>
+
+  <Step title="Generate diagnosis report">
+    Output the structured report with all experiment data, the root cause verdict, and a specific fix recommendation.
+
+    The report includes:
+    - **Verdict**: root cause category, confidence level, and fail rate
+    - **Evidence summary**: 2–3 sentences referencing specific experiment results
+    - **Experiment results**: raw pass/fail per run, isolation results, bisection trace (if applicable), timing variance table
+    - **Code analysis**: specific file and line references for flakiness signals found
+    - **Recommended fix**: before/after code snippet with exact file path and line numbers
+    - **Verification command**: exact shell command to confirm the fix works
+  </Step>
+</Steps>
+
+## Supported test frameworks
+
+<CardGroup cols={3}>
+  <Card title="pytest" icon="python">
+    Detected via `pytest.ini`, `pyproject.toml [tool.pytest]`, `setup.cfg [tool:pytest]`, or `conftest.py`. Supports `--tb=short`, `--setup-show`, `--durations=0`, and `pytest-randomly` for seed-based ordering.
+  </Card>
+
+  <Card title="Jest / Vitest" icon="js">
+    Detected via `jest.config.*` or `vitest.config.*` in `package.json`. Supports `--runInBand` for serial execution, `--detectOpenHandles`, and test name pattern filtering.
+  </Card>
+
+  <Card title="Gradle / Maven" icon="java">
+    Detected via `build.gradle` or `pom.xml`. Gradle supports `--no-build-cache --rerun-tasks`. Maven uses `-Dtest=CLASS#METHOD`. Both target fully qualified class and method names.
+  </Card>
+
+  <Card title="go test" icon="code">
+    Detected via `go.mod`. Natively supports `-count=N` for repeated runs, `-race` for race detection, `-shuffle=on` for order randomization, and `-parallel` for concurrency control.
+  </Card>
+
+  <Card title="cargo test" icon="code">
+    Detected via `Cargo.toml`. Supports `--exact` for single-test targeting, `--nocapture` for output, and `--test-threads=1` to disable parallelism.
+  </Card>
+
+  <Card title="RSpec / dotnet" icon="code">
+    RSpec detected via `Gemfile` with `rspec`; supports `--order rand:SEED` and `FILE_PATH:LINE_NUMBER` targeting. dotnet test uses `--filter FullyQualifiedName~TEST_NAME`.
+  </Card>
+</CardGroup>
+
+## Root cause categories
+
+Every diagnosis is classified into exactly one of these 6 categories:
+
+| Category | Signature | Common cause |
+|----------|-----------|-------------|
+| **ORDERING** | Passes alone, fails in-suite; bisection finds a specific interferer | Prior test mutates shared state (DB rows, env vars, module globals, temp files) without cleanup |
+| **TIMING** | Fails in isolation; failing runs take significantly longer | Race condition, `sleep()`-based synchronization, or timeout sensitivity under load |
+| **SHARED_STATE** | Fails in isolation; passes when run serially | Multiple test threads access the same mutable resource (singleton, shared port, shared DB) |
+| **EXTERNAL_DEPENDENCY** | Fail rate varies across environments (local vs CI) | Test calls a real external service instead of a mock; time or locale assertions |
+| **RESOURCE_LEAK** | First N runs pass, then failures increase progressively | File handles, DB connections, or goroutines allocated but never released |
+| **NON_DETERMINISM** | Fails in isolation at a consistent rate; no timing variance | Random values, hash map iteration order, filesystem `readdir` order used in assertions |
+
+<Note>
+  If no single root cause clearly emerges, the report outputs `INCONCLUSIVE` with the top two candidate categories and recommended additional experiments. A well-evidenced "inconclusive" is a valid and honest diagnosis.
+</Note>
+
+## Self-review checklist
+
+Before delivering the report, verify **all** of the following:
+
+- Flakiness confirmed: the test failed at least once AND passed at least once across experiment runs
+- Fail rate computed from a minimum of 10 runs (not fewer)
+- Isolation vs in-suite comparison completed (both were run)
+- Root cause category is one of the 6 defined categories
+- Fix recommendation references specific lines in the test or fixture code
+- Report includes raw run data (pass/fail per run number) as evidence
+- If ordering-dependent: the interfering test is identified by name
+- If timing-dependent: the specific race condition or timeout is identified
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Never guess the root cause">
+    Every diagnosis must be supported by experiment data. If experiments are inconclusive, say "inconclusive" and recommend further experiments — never fabricate a cause.
+  </Accordion>
+
+  <Accordion title="2. Always run isolation before ordering">
+    Run the test alone first. If it fails in isolation, ordering analysis is irrelevant — skip to timing and environment analysis.
+  </Accordion>
+
+  <Accordion title="3. Bisect, never brute-force">
+    When searching for an interfering test, use binary bisection of the test suite, not one-by-one elimination. Cut the search space in half each iteration.
+  </Accordion>
+
+  <Accordion title="4. Capture exact commands">
+    Every experiment must log the exact shell command run so the user can reproduce it. Never paraphrase a command — copy it verbatim into the report.
+  </Accordion>
+
+  <Accordion title="5. Minimum 10 runs for any statistical claim">
+    Never say "always passes" or "always fails" with fewer than 10 runs. Flaky tests can have fail rates under 10%.
+  </Accordion>
+
+  <Accordion title="6. Never modify test code during diagnosis">
+    The goal is to find the cause, not fix it during experiments. All instrumentation must be temporary and reverted before the report is delivered.
+  </Accordion>
+</AccordionGroup>

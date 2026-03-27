@@ -1,0 +1,146 @@
+---
+title: "/table"
+description: Renders sortable, filterable comparison tables live in the browser with zero external dependencies.
+---
+
+Renders interactive sortable, filterable tables in the browser by writing a zero-dependency HTML file and opening it in the browser. Sort by any column, filter by any text — all implemented in plain vanilla JS with no external libraries.
+
+Use this skill when you want to compare alternatives, show a feature matrix, display structured data, create a comparison table, or visualize rows and columns of data side-by-side.
+
+## Invocation
+
+```text
+/table [describe the data or comparison you want]
+```
+
+**Examples:**
+
+```text
+/table compare these five vector databases across latency, cost, and scalability
+/table feature matrix for open-source API gateways
+/table show this CSV data as a sortable table
+/table comparison of LLM providers: cost per token, context window, rate limits
+```
+
+## Column types
+
+Each column is assigned a type that controls how its values render:
+
+| Type | Renders as |
+|------|------------|
+| `text` | Plain string |
+| `number` | Right-aligned numeric |
+| `badge` | Colored pill label |
+| `rating` | Star characters (e.g. ⭐⭐⭐) |
+| `boolean` | ✓ or ✗ |
+| `tag` | Comma-separated tags |
+
+<Note>
+  The table uses zero external dependencies. Sort and filter are implemented in under 50 lines of plain JS. The dark background (`#1e1e2e`) and all colors are defined as CSS variables.
+</Note>
+
+## Workflow
+
+<Steps>
+  <Step title="Extract columns and rows">
+    Identify column names, value types (text, number, badge, rating, boolean, tag), and all row data from the user's context.
+  </Step>
+
+  <Step title="Map column types">
+    Assign a `type` to each column. See `TEMPLATE.md` for rendering rules per type.
+  </Step>
+
+  <Step title="Choose a filename">
+    Use `/tmp/table.html` by default. If a file with that name already exists, use a descriptive slug instead (e.g. `/tmp/db-comparison.html`). Never silently overwrite an existing file with unrelated content.
+  </Step>
+
+  <Step title="Write the HTML file">
+    Write a complete self-contained file to the chosen path using the vanilla JS template with sort and filter implementation.
+  </Step>
+
+  <Step title="Open in browser">
+    Call `mcp__chrome-devtools__new_page` with `url: file:///tmp/<filename>.html`.
+  </Step>
+
+  <Step title="Wait for render">
+    Call `mcp__chrome-devtools__wait_for` on the text of the first column header. Timeout 8000ms.
+  </Step>
+
+  <Step title="Take screenshot">
+    Call `mcp__chrome-devtools__take_screenshot` and verify all columns and rows are visible without horizontal overflow.
+  </Step>
+
+  <Step title="Fix and reload if broken">
+    If the screenshot shows problems, edit the file, then call `mcp__chrome-devtools__navigate_page` with `type: reload`.
+  </Step>
+</Steps>
+
+## Use cases
+
+<CardGroup cols={3}>
+  <Card title="Tool comparisons" icon="scale-balanced">
+    Compare databases, frameworks, vendors, or open-source projects across multiple dimensions with sortable columns.
+  </Card>
+
+  <Card title="Feature matrices" icon="table-cells">
+    Show which features each product or plan supports using boolean (✓/✗) or badge columns.
+  </Card>
+
+  <Card title="Data tables" icon="list">
+    Display any structured dataset — CSV exports, query results, metrics snapshots — in a filterable table.
+  </Card>
+</CardGroup>
+
+## Self-review checklist
+
+Before delivering, the skill verifies all of the following:
+
+- Screenshot shows all columns with readable headers and all rows with populated cells
+- Sort works: clicking a column header changes row order and shows a ▲ or ▼ indicator
+- Filter works: search input above the table is present with `placeholder="Filter..."`
+- Dark background (`#1e1e2e`) is applied — not white or gray
+- No horizontal scroll is visible when the table fits the viewport
+- Sticky header (`position: sticky; top: 0`) is present in the CSS
+- All CSS color values use `var(--token)` references — no hardcoded hex in element styles
+- `wait_for` was called before `take_screenshot`
+- Rating cells render as star characters (e.g. ⭐⭐⭐), not raw numbers
+- Boolean cells render as ✓ or ✗, not true/false
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Always define colors as CSS variables on :root">
+    Never write a hex color value directly into an element style. Every color used must reference a `var(--token)`.
+  </Accordion>
+
+  <Accordion title="2. Always include both sort AND filter">
+    A table missing either feature is incomplete. Both must be present in every output, even for small datasets.
+  </Accordion>
+
+  <Accordion title="3. Never use an external library">
+    Implement sort and filter in plain JS. The complete implementation is under 50 lines. See `TEMPLATE.md`.
+  </Accordion>
+
+  <Accordion title="4. Always use position: sticky; top: 0 on thead">
+    Apply this to every table regardless of row count.
+  </Accordion>
+
+  <Accordion title="5. Always call wait_for before take_screenshot">
+    Wait on the first column header text string. Never screenshot immediately after `new_page`.
+  </Accordion>
+
+  <Accordion title="6. Always use overflow-x: auto on the table container">
+    Without it, wide tables break the page layout.
+  </Accordion>
+
+  <Accordion title="7. Always .toLowerCase() both sides in the filter comparison">
+    Case-sensitive filtering breaks on mixed-case data.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `TEMPLATE.md` | Complete vanilla JS HTML template with full sort and filter implementation, CSS design tokens, column type rendering rules |
+| `TROUBLESHOOTING.md` | Failure diagnosis table: symptoms, likely causes, and fixes |

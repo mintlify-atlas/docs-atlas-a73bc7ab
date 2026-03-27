@@ -1,0 +1,90 @@
+---
+title: "Contributing"
+description: How to contribute new skills and improvements to the claude-skills repository.
+---
+
+Skills live directly in the [claude-skills repository](https://github.com/npow/claude-skills). Contributions follow a straightforward process built around the `/create-skill` skill itself — new skills are built using the same harness engineering practices the repository enforces.
+
+## Process
+
+<Steps>
+  <Step title="Fork the repository">
+    Fork [npow/claude-skills](https://github.com/npow/claude-skills) on GitHub and clone your fork locally.
+
+    ```bash
+    git clone https://github.com/YOUR-USERNAME/claude-skills.git
+    cd claude-skills
+    ```
+  </Step>
+
+  <Step title="Build your skill with /create-skill">
+    Use `/create-skill` to scaffold and test your new skill. This ensures your skill follows harness engineering best practices — table-of-contents architecture, golden rules, self-review loops, and progressive disclosure.
+
+    ```text
+    /create-skill [your skill's purpose or domain]
+    ```
+
+    Work through all 7 workflow steps: understand the domain, design the architecture, write the metadata, write `SKILL.md`, write reference files, evaluate, and iterate.
+  </Step>
+
+  <Step title="Pass the self-review checklist">
+    Before opening a PR, verify every item in the `/create-skill` self-review checklist. All 13 items must pass:
+
+    - `SKILL.md` is under 100 lines of content (excluding frontmatter)
+    - `SKILL.md` has zero inline code blocks
+    - `description` is specific, third-person, and includes trigger keywords
+    - Every reference file is linked from `SKILL.md` with a one-line summary
+    - Golden rules are hard and mechanical — no "consider" or "try to"
+    - Self-review checklist exists and is actionable
+    - At least one feedback loop is encoded (test → verify → fix → re-test)
+    - No vague quality language — replaced with concrete standards
+    - Reference files are one level deep
+    - Skill works both when invoked explicitly and when Claude triggers it implicitly
+    - Technology choices are boring and well-known
+    - Validation errors include remediation instructions
+    - All domain knowledge lives in the skill files
+  </Step>
+
+  <Step title="Verify golden rules are encoded">
+    Your skill must include 3–8 golden rules specific to its domain. Each rule must:
+
+    - Use imperative voice: "Never", "Always", "Must"
+    - Be mechanical — followable without judgment
+    - Prevent a specific failure mode you identified during design
+
+    Soft language ("consider", "try to", "prefer") in golden rules is grounds for rejection.
+  </Step>
+
+  <Step title="Include evaluation with real prompts">
+    Your skill's `EVALUATION.md` (or equivalent reference file) must document test prompts across all four categories:
+
+    - **Explicit invocation** — user directly names the skill or its purpose
+    - **Implicit invocation** — user describes a need matching the description keywords
+    - **Contextual prompts** — realistic prompts with extra context or ambiguity
+    - **Negative controls** — prompts where the skill should NOT trigger
+
+    Skills submitted without evaluated test prompts will be sent back for revision.
+  </Step>
+
+  <Step title="Submit a pull request">
+    Open a PR against `main` on [npow/claude-skills](https://github.com/npow/claude-skills). Include:
+
+    - A one-sentence description of what the skill does
+    - The trigger phrases that activate it
+    - Confirmation that the self-review checklist passed
+  </Step>
+</Steps>
+
+<Note>
+  The `/create-skill` skill is the authoritative guide for building new skills. It encodes every convention this repository enforces. If you're unsure how to structure something, invoke `/create-skill` and follow its workflow.
+</Note>
+
+## Contribution guidelines
+
+**One skill per PR.** Keep contributions focused. A PR that adds or modifies a single skill is easier to review than one that touches many.
+
+**No exotic dependencies.** Skills must prefer composable, stable, well-known tools that are well-represented in training data. If a dependency is opaque or brittle, reimplement the needed subset rather than wrapping it.
+
+**Improvements to existing skills** follow the same bar as new skills: changes must pass the self-review checklist and must not introduce soft language into golden rules.
+
+**Bug reports and suggestions** are welcome as GitHub issues at [npow/claude-skills](https://github.com/npow/claude-skills).

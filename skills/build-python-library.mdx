@@ -1,0 +1,172 @@
+---
+title: "/build-python-library"
+description: Scaffolds pip-installable Python packages with src layout, pyproject.toml, and pytest. Covers project structure, proxy/wrapper patterns, provider-agnostic interfaces, and test infrastructure.
+---
+
+Implements pip-installable Python libraries from scratch using src layout, `pyproject.toml`, and pytest. Covers project scaffolding, core abstractions with adapters, and verifying each module before proceeding to the next.
+
+## Invocation
+
+```text
+/build-python-library [library name or description]
+```
+
+## What it produces
+
+<CardGroup cols={2}>
+  <Card title="Src layout" icon="folder">
+    `src/packagename/` structure with `py.typed` marker, `_types.py` for shared types, `core.py` for framework-agnostic logic, and an `adapters/` directory for framework-specific code.
+  </Card>
+  <Card title="pyproject.toml" icon="file">
+    Hatchling build backend, optional dependency groups per integration, pytest configuration with `asyncio_mode = "auto"`, and Pyright type checking config.
+  </Card>
+  <Card title="Explicit public API" icon="code">
+    `__init__.py` with `__all__` listing only the names users need. Internal modules prefixed with `_`. Adapter `__init__.py` intentionally empty to prevent pulling in all framework deps.
+  </Card>
+  <Card title="Pytest setup" icon="check">
+    One test file per source module, `conftest.py` with shared fixtures, and a verification script to confirm the public API imports cleanly after `pip install -e ".[dev]"`.
+  </Card>
+</CardGroup>
+
+## Workflow
+
+<Steps>
+  <Step title="Scaffold the project">
+    Create the src layout directory structure, write `pyproject.toml` with `[build-system]`, `[project]`, and `[project.optional-dependencies]` sections, and add the `py.typed` PEP 561 marker file.
+
+    ```
+    project-name/
+    ├── pyproject.toml
+    ├── README.md
+    ├── src/
+    │   └── packagename/
+    │       ├── __init__.py
+    │       ├── py.typed
+    │       ├── _types.py
+    │       ├── core.py
+    │       ├── _internal/
+    │       └── adapters/
+    └── tests/
+        ├── conftest.py
+        ├── test_core.py
+        └── adapters/
+    ```
+  </Step>
+
+  <Step title="Define the public API">
+    Write `__init__.py` with explicit imports and `__all__`. Only types and functions users need are exported. Internal modules use an underscore prefix (`_internal.py`) or live in a `_private/` subdirectory.
+
+    ```python
+    """Package description — one line."""
+
+    from packagename._types import SomeProtocol, SomeDataclass
+    from packagename.core import MainClass, main_function
+
+    __all__ = [
+        "SomeProtocol",
+        "SomeDataclass",
+        "MainClass",
+        "main_function",
+    ]
+
+    __version__ = "0.1.0"
+    ```
+  </Step>
+
+  <Step title="Implement core abstractions">
+    Build protocols/ABCs, data classes, and shared types in `_types.py`. These are the foundation all concrete implementations depend on.
+
+    Use `Protocol` for duck-typed interfaces (not `ABC`) unless you need shared implementation. Every function parameter and return type must have a type annotation.
+  </Step>
+
+  <Step title="Test core abstractions">
+    Write pytest tests for all core types and protocols. Run `pytest` and verify zero failures before proceeding to concrete modules.
+
+    <Warning>
+      Never implement the next module until the current module has passing tests. Catching integration errors per-module is far cheaper than debugging at the end.
+    </Warning>
+  </Step>
+
+  <Step title="Implement concrete modules">
+    Build one module at a time: proxy wrappers, provider clients, adapters. Use lazy imports for optional framework dependencies:
+
+    ```python
+    def _get_chromadb():
+        """Import chromadb, raising a helpful error if not installed."""
+        try:
+            import chromadb
+            return chromadb
+        except ImportError:
+            raise ImportError(
+                "chromadb is required for the Chroma adapter. "
+                "Install it with: pip install packagename[chroma]"
+            ) from None
+    ```
+  </Step>
+
+  <Step title="Test each module before the next">
+    Write tests for the module just implemented. Run `pytest` and verify zero failures before starting the next module.
+  </Step>
+
+  <Step title="Install and verify">
+    Run `pip install -e ".[dev]"` and confirm the package imports correctly from a clean script:
+
+    ```bash
+    pip install -e ".[dev]"
+    python -c "from packagename import MainClass, main_function; print('OK')"
+    ```
+  </Step>
+
+  <Step title="Run full test suite">
+    Run `pytest -v` and verify all tests pass. Confirm the complete public API is importable without error.
+
+    ```bash
+    pytest -v
+    python -c "from packagename import *"
+    ```
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- Project uses src layout: `src/packagename/` not `packagename/` at root
+- `pyproject.toml` exists with `[build-system]`, `[project]`, and `[project.optional-dependencies]`
+- `py.typed` marker file exists in the package directory
+- `__init__.py` has explicit `__all__` listing only public names
+- Every public function and class has a type-hinted signature (all parameters and return type)
+- Every module has a corresponding test file (`src/pkg/foo.py` → `tests/test_foo.py`)
+- `pytest -v` passes with zero failures
+- `pip install -e ".[dev]"` succeeds
+- `python -c "from packagename import ..."` imports all public API names without error
+- No third-party imports in core modules that lack a corresponding optional dependency group
+- Proxy/wrapper classes delegate unknown attributes via `__getattr__` to the wrapped object
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Src layout always">
+    Every project uses `src/packagename/` structure. Never place the package at the repository root. This prevents accidental imports from the source directory instead of the installed package.
+  </Accordion>
+
+  <Accordion title="2. Test before you proceed">
+    Never implement module N+1 until module N has passing tests. Run `pytest` after each module. This catches integration errors early instead of at the end.
+  </Accordion>
+
+  <Accordion title="3. Explicit public API">
+    `__init__.py` must define `__all__` and import only the names users need. Internal modules start with underscore (`_internal.py`) or live in a `_private/` subdirectory. Never expose implementation details.
+  </Accordion>
+
+  <Accordion title="4. Type hints on every signature">
+    Every function parameter and return type must have a type annotation. Use `Protocol` for duck-typed interfaces, not `ABC` unless you need shared implementation.
+  </Accordion>
+
+  <Accordion title="5. Optional dependencies in extras">
+    Third-party framework imports (langchain, chromadb, openai) must be in `[project.optional-dependencies]` groups and imported lazily with `try/except` at usage point, not at module top level.
+  </Accordion>
+
+  <Accordion title="6. Proxy delegates everything">
+    Wrapper classes must implement `__getattr__` to forward unknown attribute access to the wrapped object. Never enumerate and re-implement every method — the proxy must work with future methods the wrapped library adds.
+  </Accordion>
+</AccordionGroup>

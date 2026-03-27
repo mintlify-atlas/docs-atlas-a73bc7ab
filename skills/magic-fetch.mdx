@@ -1,0 +1,189 @@
+---
+title: "/magic-fetch"
+description: Logs capability gaps in real-time as they arise during a Claude Code session, then synthesises them into a prioritised integration roadmap. Use when you want to capture what Claude couldn't do and turn that into a concrete list of integrations to build.
+---
+
+Captures capability gaps as they occur. When Claude hits a wall — can't fetch a URL, can't read a database, can't access a repo — it logs exactly what was needed and why, rather than just saying "I can't." Over time this builds a prioritised integration roadmap written by the agent itself.
+
+Use this skill when you want to track integration needs, record where Claude hits walls, or build a roadmap from blocked requests.
+
+## Two modes
+
+<CardGroup cols={2}>
+  <Card title="Capture mode" icon="record-vinyl">
+    Activated at the start of a session. Logs every capability gap to a JSONL file as work proceeds. Claude continues all tasks normally — the only change is that every "I can't" also writes a structured log entry.
+  </Card>
+  <Card title="Review mode" icon="chart-bar">
+    Summarises an existing gap log into a ranked integration roadmap. Groups gaps by capability type, scores by frequency and impact, and outputs the highest-leverage integrations to build first.
+  </Card>
+</CardGroup>
+
+## Invocation
+
+```text
+/magic-fetch
+```
+
+**With a custom log path:**
+
+```text
+/magic-fetch ./logs/gaps.jsonl
+```
+
+**Review mode** (summarise an existing log):
+
+```text
+/magic-fetch review ./magic-fetch.jsonl
+```
+
+The default log file is `./magic-fetch.jsonl` in the current working directory.
+
+## Capture mode workflow
+
+<Steps>
+  <Step title="Activate">
+    Confirm the log file path (default: `./magic-fetch.jsonl`). Create it if it doesn't exist. Claude announces: `Magic fetch active. I'll log every capability gap to {path}.`
+  </Step>
+
+  <Step title="Proceed normally">
+    Claude carries out all tasks as usual. The only change is that every capability gap now also writes a log entry. No tasks are blocked or deferred.
+  </Step>
+
+  <Step title="Log every gap">
+    Whenever Claude cannot perform a requested action due to a missing tool, access, data, or permission, it appends one JSON entry to the JSONL file **before or alongside** explaining the limitation.
+
+    Each entry contains:
+
+    | Field | Description |
+    |-------|-------------|
+    | `ts` | ISO 8601 timestamp |
+    | `session_task` | What the user was trying to accomplish |
+    | `requested` | The specific action Claude attempted |
+    | `missing` | The exact capability, data, or permission that was absent |
+    | `capability_type` | Category (see below) |
+    | `would_need` | Concrete solution: MCP server name, API name, permission scope |
+    | `impact` | `high` / `medium` / `low` — how much this blocked the user's goal |
+    | `notes` | Optional context about frequency, workarounds, priority signals |
+
+    After writing, Claude outputs inline: `[gap logged: {would_need} — {capability_type}]`
+  </Step>
+
+  <Step title="Never skip a gap">
+    If Claude said "I can't", "I don't have access", "I'm unable to", or "I don't know the current...", a log entry is required. No exceptions — including cases where Claude silently worked around a gap by asking the user to paste something in.
+  </Step>
+</Steps>
+
+## Capability types
+
+Every gap entry is assigned exactly one of these `capability_type` values:
+
+| Type | Examples |
+|------|---------|
+| `code_repository` | GitHub, GitLab, Bitbucket: PRs, commits, branches, issues |
+| `code_execution` | Running code in a remote env, container, or specific runtime |
+| `external_api` | Any third-party API (Datadog, Sentry, Stripe, Slack, etc.) |
+| `file_system` | Files outside the working directory, remote paths, cloud storage |
+| `database` | Querying a database, data warehouse, or cache |
+| `observability` | Metrics, logs, traces, dashboards (Grafana, Datadog, etc.) |
+| `web_fetch` | Fetching a URL, scraping a page, calling a public endpoint |
+| `authentication` | Credentials, secrets, tokens, OAuth flows |
+| `internal_tool` | Company-internal system with no public API |
+| `realtime_data` | Live data: stock prices, weather, current status, deploys |
+| `human_approval` | Requires a human decision or sign-off |
+| `other` | Anything that doesn't fit above |
+
+## Gap log format
+
+Each gap is one line of JSONL (newline-delimited JSON):
+
+```json
+{
+  "ts": "2026-03-08T14:23:01Z",
+  "session_task": "Review the open PRs for the auth service",
+  "requested": "List open pull requests for github.com/acme/auth-service",
+  "missing": "GitHub API access — no tool available to query repository PRs",
+  "capability_type": "code_repository",
+  "would_need": "GitHub MCP server or PAT with repo:read scope",
+  "impact": "high",
+  "notes": "User would use this constantly — almost every debugging session involves PRs"
+}
+```
+
+## Review mode workflow
+
+<Steps>
+  <Step title="Load and parse the log">
+    Read the JSONL file line by line. If the file is empty or missing, inform the user no gaps have been captured yet.
+  </Step>
+
+  <Step title="Cluster by capability type">
+    Group all entries by `capability_type`. Count frequency per type. Within each cluster, collect all unique `would_need` values.
+  </Step>
+
+  <Step title="Score by frequency and impact">
+    For each `capability_type` cluster, compute a priority score:
+
+    ```
+    score = (high_count × 3) + (medium_count × 1) + (low_count × 0)
+    ```
+
+    Sort clusters descending by score.
+  </Step>
+
+  <Step title="Output the roadmap">
+    Produce a ranked table of integrations followed by per-integration details (top 5, or all if ≤10 total):
+
+    | Rank | Integration | Type | Gaps logged | Impact | Example use case |
+    |------|-------------|------|-------------|--------|-----------------|
+    | 1 | GitHub MCP server | code_repository | 12 | 8 high, 4 med | List open PRs, view commits |
+    | 2 | Datadog MCP server | observability | 8 | 7 high, 1 low | Error rates, service latency |
+
+    Each integration detail includes: gap count, sessions affected, specific actions that were blocked, a concrete install path, and estimated complexity (low / medium / high).
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- Log file path was confirmed with the user or defaulted to `./magic-fetch.jsonl`
+- Every gap entry contains: `ts`, `session_task`, `requested`, `missing`, `capability_type`, `would_need`, `impact`
+- No gap was silently dropped — every "I can't" has a corresponding log entry
+- `[gap logged: ...]` confirmation shown for each entry
+- Review mode produces a ranked table, not a raw log dump
+- Review mode ends with: "Based on X gaps across Y sessions, the highest-leverage first integration is: Z."
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Log before you explain">
+    Write the gap entry to the file before or alongside telling the user you can't do something. Never explain first and forget to log.
+  </Accordion>
+
+  <Accordion title="2. Be specific about what's missing">
+    "No internet access" is useless. "GitHub API access to list commits for repo X" is useful. Every entry must name the specific data, endpoint, or permission needed.
+  </Accordion>
+
+  <Accordion title="3. Include the user's intent">
+    The log must capture what the user was trying to accomplish, not just what Claude couldn't do. This is what makes the roadmap actionable.
+  </Accordion>
+
+  <Accordion title="4. One entry per gap, not per turn">
+    If a single turn has 3 capability walls, log 3 entries.
+  </Accordion>
+
+  <Accordion title="5. Never suppress gaps out of politeness">
+    If it would embarrass Claude to log it, that's exactly when to log it.
+  </Accordion>
+
+  <Accordion title="6. Review produces a roadmap, not a list">
+    Gaps must be clustered, ranked, and presented as integration candidates with concrete next steps — not a raw log dump.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `CAPTURE.md` | JSON schema for gap entries, detection patterns, impact scoring guide, examples |
+| `REVIEW.md` | Clustering strategy, priority scoring formula, roadmap output format |

@@ -1,23 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Claude Skills",
+  "projectType": "general",
+  "projectName": "Claude Skills",
+  "projectDescription": "A collection of reusable slash-command workflows that make Claude Code reliable on complex multi-step tasks like research, building, debugging, and visualization.",
   "theme": "luma",
-  "colors": {
-    "primary": "#94cb04",
-    "light": "#545454"
-  },
-  "favicon": "https://media.brand.dev/288cc7c4-5cef-4376-950b-bdf0083eedae.png",
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/npow/claude-skills"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/npow/claude-skills"
-    }
-  },
+  "primaryColor": "#94cb04",
+  "lightColor": "#545454",
+  "darkColor": null,
   "navigation": {
     "tabs": [
       {
@@ -76,12 +64,47 @@
             "pages": [
               "skills/create-skill",
               "skills/skill-architecture",
-              "skills/magic-fetch",
               "contributing"
             ]
           }
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "20+ reusable slash-command workflows for Claude Code",
+    "Multi-phase pipeline for shipping product ideas end-to-end",
+    "Parallel subagent orchestration with quality gates",
+    "Systematic multi-dimensional research with source verification",
+    "Adversarial design stress-testing and QA",
+    "Interactive browser-based visualizations (charts, diagrams, slides, timelines)",
+    "Flaky test root-cause diagnosis via structured experiments",
+    "Production readiness scanning across 24 checklist items",
+    "Harness engineering: table-of-contents architecture with progressive disclosure",
+    "Self-review checklists and golden rules encoded in every skill"
+  ],
+  "publicApiSurface": [
+    "/ship-it",
+    "/build-python-library",
+    "/init-github-repo",
+    "/develop-board-game",
+    "/deep-research",
+    "/deep-idea",
+    "/deep-design",
+    "/deep-qa",
+    "/spec",
+    "/gap-finder",
+    "/proposal-reviewer",
+    "/competitive-matrix",
+    "/research-brief",
+    "/chart",
+    "/diagram",
+    "/slides",
+    "/table",
+    "/timeline",
+    "/flaky-test-diagnoser",
+    "/prod-readiness",
+    "/create-skill",
+    "/magic-fetch"
+  ]
 }

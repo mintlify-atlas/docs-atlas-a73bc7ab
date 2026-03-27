@@ -1,0 +1,186 @@
+---
+title: "/deep-design"
+description: Adversarially stress-tests a design concept through parallel critic agents, independent severity judges, and a fix-and-re-attack loop until coverage is saturated. Output is a battle-tested design document with an honest coverage report.
+---
+
+Given a design concept, validates the input, drafts a spec, attacks it with parallel critic agents across orthogonal dimensions, fixes discovered flaws using independent judge agents, and repeats until coverage is saturated. Every load-bearing evaluation is delegated to independent agents — the coordinator orchestrates but never evaluates.
+
+Use this skill when you want a concept stress-tested before building: games, products, protocols, APIs, systems, or any design that needs to survive real-world use.
+
+## Invocation
+
+```text
+/deep-design [design concept or idea]
+```
+
+**Examples:**
+
+```text
+/deep-design a multiplayer trivia game with skill-based matchmaking
+/deep-design a CLI tool for managing monorepo dependencies
+/deep-design an event-sourced order management system
+```
+
+## Execution model
+
+Four non-negotiable contracts govern every operation:
+
+- **All data passed to agents via files, never inline.** Spec content, dedup lists, and angle definitions are written to disk before the agent prompt. Inline data is silently truncated.
+- **State written before agent spawn, not after.** `spawn_time_iso` is written to `state.json` before the Agent tool call. Spawn failures record `spawn_failed` status.
+- **Structured output is the contract; free-text is ignored.** Critic files must contain `STRUCTURED_OUTPUT_START`/`STRUCTURED_OUTPUT_END` markers. Files without these markers are treated as failed.
+- **No coordinator self-review of anything load-bearing.** Severity classification, cross-fix consistency, section-impact scoring — all delegated to independent agents.
+
+## Workflow
+
+<Steps>
+  <Step title="Step 0: Input validation">
+    Validates the concept against a rubric — rejects if too vague ("make a good app"), already fully specified (implementation request), or harmful. Extracts a 1–2 sentence core claim and runs a **specificity test** against 2 domain-adjacent alternatives. Locks the core claim and its SHA-256 hash in `state.json` as the anti-tamper reference for concept drift checks.
+  </Step>
+
+  <Step title="Step 1: Initialize">
+    Creates the run directory:
+
+    ```text
+    deep-design-{run_id}/
+    ├── state.json
+    ├── critiques/
+    ├── specs/
+    │   └── v0-initial.md
+    ├── logs/
+    │   ├── frontier_pop_log.jsonl
+    │   └── coverage_gaps.jsonl
+    └── spec.md          (written at Step 8)
+    ```
+  </Step>
+
+  <Step title="Step 2: Initial design draft">
+    Writes `specs/v0-initial.md` — a fast first-pass design covering: core concept, key mechanics/features, user/player flow, high-level technical approach, and known open questions. Deliberately rough — good enough to critique, not polished.
+  </Step>
+
+  <Step title="Step 3: Dimension discovery">
+    Enumerates critique dimensions. Five required dimension categories must each have at least one explored angle:
+
+    - **correctness** — does the design work as claimed?
+    - **usability/UX** — can users actually use it?
+    - **economics/cost** — is it affordable and sustainable?
+    - **operability** — can it be operated and maintained?
+    - **security/trust** — can it be abused or corrupted?
+
+    Generates 2–4 angles per dimension; caps the frontier at 40 angles total. Each angle definition is written to `state.json` at discovery time and is **immutable** once written.
+  </Step>
+
+  <Step title="Step 4: Critique round">
+    A prospective gate fires at the turn boundary before critics are spawned, showing cost estimates and projections. You continue the conversation to proceed, or stop to trigger final synthesis.
+
+    Per round:
+    - Pop up to 6 highest-priority angles from the frontier
+    - Spawn one **outside-frame critic** (slot #7) seeded from the original concept description only — not the current spec
+    - Each critic writes to a content-addressed file; the coordinator cannot overwrite these files
+    - Quorum: ≥4 of 6 spec-derived critics must return parseable output
+    - Severity classification delegated to **independent judge agents** (two-pass blind protocol)
+
+    Critic output includes flaws, scenarios, suggested fixes, and 1 new critique angle per round.
+  </Step>
+
+  <Step title="Step 5: Synthesis with independent judges">
+    For each flaw, before redesign:
+
+    - A **fact-sheet agent** reads the current spec and extracts recovery behaviors as structured output.
+    - A **severity judge** receives the flaw description with severity stripped (blind pass 1), issues an independent verdict, then receives the critic's original severity claim (pass 2) and confirms, upgrades, or downgrades.
+    - Each flaw is validated against 5 checks: contradiction, premise, existence, nerf, and falsifiability. Flaws that fail validation are downgraded to "disputed" — not silently dropped.
+    - **GAP_REPORTs** allow critics to re-open a closed flaw whose fix was insufficient (max 2 per flaw per run).
+  </Step>
+
+  <Step title="Step 6: Redesign">
+    An **independent redesign agent** receives the accepted flaw list and raw critic file paths (no coordinator theme labels or summaries) plus the current spec and the full `component_invariants` list from `state.json`.
+
+    The redesign agent performs its own internal grouping and writes the new versioned spec at `specs/v{N}-post-round-{round}.md`. Every change is annotated with `<!-- Fixed: <description> -->`.
+
+    Complexity budget:
+    - Rounds 1–2: ≤2 new components or state fields per redesign
+    - Rounds 3+: ≤1 new component or state field per redesign
+
+    After redesign, an **invariant-validation agent** verifies every invariant against the new spec before the next critique round begins. Violations block round advancement.
+  </Step>
+
+  <Step title="Step 7: Termination check">
+    Runs terminate at `max_rounds` (default 5). Early exit is available but not the expected path — it requires all 5 required dimension categories covered, no new dimension categories for 2 consecutive rounds, and no open critical flaws.
+
+    Termination label: **"Conditions Met"** or **"Max Rounds Reached"** — never "no critical flaws remain."
+  </Step>
+
+  <Step title="Step 8: Final spec">
+    A Sonnet subagent writes `deep-design-{run_id}/spec.md` using the coordinator summary, per-critique mini-syntheses, and the latest versioned spec — not raw critique files.
+
+    The coverage report includes: dimensions covered, required categories covered, unverified sections, open issues, and an honest caveats section.
+
+    After writing the spec, the skill offers a `/deep-qa` pass to audit the spec as a document:
+
+    ```text
+    QA pass available. Run deep-qa on this spec? [y/N]
+    ```
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- State file is valid JSON after every round; `generation` counter incremented after every state write
+- `core_claim_sha256` stored at Step 0; verified before each drift check
+- No critique angle has status `in_progress` after round completes
+- Every critique file has: Flaws, Severity, Scenario, Suggested Fix, Mini-Synthesis, New Angles
+- All critical flaws have a resolution (fixed, accepted, or disputed with rationale)
+- Disputed flaws documented in coordinator summary — not silently dropped
+- Final spec does NOT read raw critique files
+- Final spec is internally consistent (no fix contradicts another)
+- Termination label is "Conditions Met" or "Max Rounds Reached" — never "no critical flaws remain"
+- Coverage report includes unverified sections and open issues
+- Invariant-validation agent ran after each redesign
+- Outside-frame critic spawned each round
+- Frontier pop decisions logged in `logs/frontier_pop_log.jsonl`
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Critics must be adversarial">
+    An agent that says "looks good" is a failed critic. Push agents to find REAL problems — concrete scenarios, not cosmetic concerns.
+  </Accordion>
+
+  <Accordion title="2. Every flaw needs a concrete scenario">
+    "This might be unbalanced" is not a flaw. "A user who does X in situation Y breaks the system because Z" is a flaw.
+  </Accordion>
+
+  <Accordion title="3. Fixes must address root causes">
+    The fix for a symptom that patches surface behaviour without addressing why it occurs will generate a GAP_REPORT from the next round's critics.
+  </Accordion>
+
+  <Accordion title="4. Independence invariant">
+    The coordinator orchestrates; it does not evaluate. Severity classification, fact verification, cross-fix consistency, and section-impact scoring are always performed by independent agents.
+  </Accordion>
+
+  <Accordion title="5. Never nerf what you can redesign">
+    If something is too powerful or creates problems, change the FORMAT or CONTEXT rather than handicapping the feature. Redesign the battlefield.
+  </Accordion>
+
+  <Accordion title="6. Question whether the feature should exist">
+    Before fixing a flawed mechanic, ask: "Does this mechanic earn its place?" Removing a broken feature is often better than patching it.
+  </Accordion>
+
+  <Accordion title="7. Critique what's missing, not just what's there">
+    The most dangerous flaws are omissions. A component that is referenced but not specified is a critical flaw. A label is not a design.
+  </Accordion>
+
+  <Accordion title="8. Termination means coverage is saturated, not zero flaws">
+    "Conditions Met" means all required dimensions are covered and no critical flaws are open. It does not mean the design is perfect.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `DFS.md` | Frontier management, dimension discovery, priority ordering, termination logic |
+| `FORMAT.md` | Critique file format, structured output markers, mini-synthesis format |
+| `STATE.md` | State schema, `component_invariants`, `ordering_graph`, `generation` counter |
+| `SYNTHESIS.md` | Coordinator summary format, final spec structure |

@@ -1,0 +1,74 @@
+---
+title: "Installation"
+description: "Clone the Claude Skills repository and link it to your Claude Code config in under two minutes."
+---
+
+Skills are loaded by Claude Code from `~/.claude/skills/`. Installation means cloning the repository and making the skills available in that directory — either as individual symlinks or as the entire directory.
+
+## Prerequisites
+
+- [Claude Code](https://claude.ai/code) installed and working
+- `git` available on your PATH
+
+## Install
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the `claude-skills` repo to a permanent location on your machine. Choose a path you won't move, since symlinks will point to it.
+
+    ```bash
+    git clone https://github.com/npow/claude-skills.git
+    ```
+  </Step>
+
+  <Step title="Choose an installation option">
+    You have two options depending on how many skills you want.
+
+    <Tabs>
+      <Tab title="Option A: Individual skills">
+        Symlink only the skills you want. This keeps your `~/.claude/skills/` directory tidy if you already have other skills installed.
+
+        ```bash
+        ln -s "$(pwd)/claude-skills/build-python-library" ~/.claude/skills/build-python-library
+        ```
+
+        Repeat for each skill you want. The available skill names match the directory names in the repository.
+
+        <Tip>
+          Start with one or two skills you'll use immediately — you can always add more later by running the same `ln -s` command for additional directories.
+        </Tip>
+      </Tab>
+      <Tab title="Option B: Entire library">
+        Use the cloned repository as your entire skills directory. This gives you all skills at once and makes updates easy (`git pull`).
+
+        <Warning>
+          This replaces your existing `~/.claude/skills/` directory. The commands below back it up first, but review what's in it before proceeding.
+        </Warning>
+
+        ```bash
+        mv ~/.claude/skills ~/.claude/skills.bak
+        ln -s "$(pwd)/claude-skills" ~/.claude/skills
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Verify the installation">
+    Open a new Claude Code session and type any skill's slash command — for example `/deep-research`. If Claude loads the skill context and begins the workflow, the installation succeeded.
+
+    <Note>
+      If the slash command is not recognised, confirm that the symlink target exists and points to a directory containing a `SKILL.md` file.
+    </Note>
+  </Step>
+</Steps>
+
+## Keeping skills up to date
+
+Because the skills directory is a symlink to the cloned repository, you can pull the latest skills at any time:
+
+```bash
+cd claude-skills
+git pull
+```
+
+No relinking required.

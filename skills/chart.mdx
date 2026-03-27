@@ -1,0 +1,149 @@
+---
+title: "/chart"
+description: Renders interactive Chart.js charts (bar, line, pie, radar, time series) live in the browser from context-supplied data.
+---
+
+Renders interactive charts live in the browser using Chart.js from data and chart type found in the conversation context. The output is always a self-contained HTML file opened in the browser — never a static image.
+
+Use this skill when you want to visualize data, plot numbers, draw a bar chart, line chart, pie chart, radar chart, compare benchmarks, show a cost curve, or display a time series.
+
+## Invocation
+
+```text
+/chart [describe the data or chart you want]
+```
+
+**Examples:**
+
+```text
+/chart bar chart of monthly revenue for Q1–Q4
+/chart line chart comparing model latency across 5 providers
+/chart pie chart of market share by vendor
+/chart radar chart of feature coverage across tools
+/chart time series of daily active users over the last 90 days
+```
+
+## Supported chart types
+
+| Type | When to use |
+|------|-------------|
+| `bar` | Comparing discrete categories |
+| `line` | Trends over time or ordered sequences |
+| `pie` / `doughnut` | Part-to-whole relationships |
+| `radar` | Multi-dimensional capability comparisons |
+| Time series | Dense temporal data with date-based x-axis |
+
+## Data format
+
+Provide data in any natural form — the skill extracts labels and values from context. You can supply:
+
+- A table pasted into the conversation
+- A list of numbers with labels
+- A description such as "revenue was 120 in Jan, 145 in Feb, 130 in Mar"
+
+For multi-dataset charts, name each series clearly:
+
+```text
+Product A: 10, 20, 30
+Product B: 15, 25, 35
+```
+
+<Note>
+  The skill uses the Chart.js CDN (`chart.umd.min.js` v4.4.1) and renders entirely in the browser. No data leaves your machine.
+</Note>
+
+## Workflow
+
+<Steps>
+  <Step title="Extract data and chart type">
+    Identify labels, datasets, and chart type (bar, line, pie, doughnut, radar) from the user's request or conversation context.
+  </Step>
+
+  <Step title="Choose colors">
+    Assign dataset colors from the standard palette defined in `TEMPLATE.md`. No ad-hoc inline colors.
+  </Step>
+
+  <Step title="Write the HTML file">
+    Write a complete self-contained file to `/tmp/chart.html` using the Chart.js template matching the chart type.
+  </Step>
+
+  <Step title="Open in browser">
+    Call `mcp__chrome-devtools__new_page` with `url: file:///tmp/chart.html`.
+  </Step>
+
+  <Step title="Wait for render">
+    Call `mcp__chrome-devtools__wait_for` on a static DOM element (an `<h2 id="ready">` placed above the canvas). Chart.js renders to canvas — canvas text is not detectable by `wait_for`. Timeout 10000ms.
+  </Step>
+
+  <Step title="Take screenshot">
+    Call `mcp__chrome-devtools__take_screenshot` and verify the chart is visible with labeled axes and readable text.
+  </Step>
+
+  <Step title="Fix and reload if broken">
+    If the screenshot shows problems, edit `/tmp/chart.html`, then call `mcp__chrome-devtools__navigate_page` with `type: reload`.
+  </Step>
+</Steps>
+
+## Use cases
+
+<CardGroup cols={3}>
+  <Card title="Benchmark comparisons" icon="chart-bar">
+    Compare throughput, latency, or accuracy across models, tools, or configurations with a grouped bar chart.
+  </Card>
+
+  <Card title="Trend analysis" icon="chart-line">
+    Plot metrics over time — revenue, signups, error rates — with a line or time series chart.
+  </Card>
+
+  <Card title="Capability radar" icon="circle-dot">
+    Score multiple dimensions (speed, accuracy, cost, reliability) for each option on a radar chart.
+  </Card>
+</CardGroup>
+
+## Self-review checklist
+
+Before delivering, the skill verifies all of the following:
+
+- Screenshot shows the chart with visible title, labels, and data — no blank canvas
+- Chart text is readable on dark background — not invisible black-on-dark
+- Container div has explicit `height` (e.g. `500px`) in CSS — not just on the canvas element
+- Both `responsive: true` and `maintainAspectRatio: false` are set in chart options
+- `Chart.defaults.color` and `Chart.defaults.borderColor` are set before `new Chart()`
+- Dataset colors are from the standard palette — no ad-hoc inline colors
+- CDN URL is exactly `https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js`
+- `wait_for` is called with the chart title text before `take_screenshot`
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Never set width or height on the canvas element">
+    Set dimensions on the wrapper div via CSS (`height: 500px`). Canvas attributes override Chart.js responsive sizing.
+  </Accordion>
+
+  <Accordion title="2. Always set both responsive: true and maintainAspectRatio: false">
+    Either setting alone is insufficient — the chart collapses to 0 height without both.
+  </Accordion>
+
+  <Accordion title="3. Always set Chart.defaults before creating any chart">
+    Set `Chart.defaults.color` and `Chart.defaults.borderColor` before `new Chart()`. Without them, all text renders as black and is invisible on the dark background.
+  </Accordion>
+
+  <Accordion title="4. Always use new_page for first open">
+    Use `mcp__chrome-devtools__new_page` with `url: file:///tmp/chart.html`. Use `navigate_page` with `type: reload` only for subsequent fixes.
+  </Accordion>
+
+  <Accordion title="5. Always add a static element and wait_for it">
+    Add an `<h2 id="ready">` above the canvas and call `wait_for` on it. Chart.js renders text onto canvas — canvas text is invisible to `wait_for`. The static element is the only reliable render signal.
+  </Accordion>
+
+  <Accordion title="6. Never hardcode colors inline in datasets">
+    Always use colors from the standard palette array defined in `TEMPLATE.md`.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `TEMPLATE.md` | Complete Chart.js HTML templates for bar, line, and pie/doughnut; color palette; data format patterns |
+| `TROUBLESHOOTING.md` | Failure diagnosis table: symptoms, causes, fixes |

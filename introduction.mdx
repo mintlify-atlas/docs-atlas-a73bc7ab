@@ -1,0 +1,68 @@
+---
+title: "Introduction"
+description: "A library of reusable slash-command workflows that make Claude Code reliable on complex multi-step tasks."
+---
+
+Claude Skills is a library of structured workflows — called **skills** — that you invoke with a single slash command in Claude Code. Each skill encodes domain knowledge, step-by-step processes, quality gates, and self-review checklists so Claude handles complex tasks reliably, every time.
+
+<Info>
+  Skills live in `~/.claude/skills/` and are available in every Claude Code session automatically.
+</Info>
+
+## The problem skills solve
+
+Claude Code is powerful out of the box, but complex tasks — scaffolding a Python library, initializing a GitHub repo with CI/CD, diagnosing flaky tests, shipping a product idea end-to-end — require careful prompting and domain knowledge that gets lost between sessions. You end up re-explaining the same workflows, catching the same mistakes, and missing the same steps.
+
+Skills fix that. Each skill is a directory of markdown files that Claude loads as context when you invoke it. The domain knowledge, workflow steps, and quality rules are encoded once and reused every time.
+
+## How a skill is structured
+
+Every skill is a directory containing a `SKILL.md` entrypoint and optional reference files.
+
+**`SKILL.md`** is the table of contents for the skill. It contains:
+- Numbered workflow steps, each pointing to a reference file for details
+- Golden rules — hard, mechanical constraints that prevent common mistakes
+- A self-review checklist Claude runs before delivering output
+
+**Reference files** contain the detailed guidance: templates, code patterns, examples, and domain knowledge. They are loaded progressively — only when Claude needs them — so context stays focused.
+
+This architecture has four key properties:
+
+- **Table-of-contents structure** — `SKILL.md` stays concise (~50–100 lines). Details live one level deeper in reference files.
+- **Progressive disclosure** — Only `SKILL.md` loads on invocation. Reference files load on demand, keeping the context window efficient.
+- **Golden rules** — Each skill encodes 3–8 hard mechanical rules that prevent the most common failure modes for that domain.
+- **Feedback loops** — Every skill includes at least one `do → check → fix` cycle, so errors are caught and corrected before output is delivered.
+
+## Skill categories
+
+<CardGroup cols={2}>
+  <Card title="Building & Shipping" icon="hammer" href="/skills/ship-it">
+    Ship product ideas end-to-end, scaffold Python libraries, initialize GitHub repos with CI/CD, and build digital board games.
+  </Card>
+  <Card title="Research & Design" icon="magnifying-glass" href="/skills/deep-research">
+    Multi-dimensional research, adversarial design review, gap finding, spec writing, and competitive analysis.
+  </Card>
+  <Card title="Visualization" icon="chart-bar" href="/skills/chart">
+    Render interactive charts, diagrams, slide decks, sortable tables, and Gantt timelines live in the browser.
+  </Card>
+  <Card title="Debugging & Quality" icon="bug" href="/skills/flaky-test-diagnoser">
+    Diagnose flaky tests with structured multi-run experiments and scan codebases for 24 production readiness items.
+  </Card>
+  <Card title="Creating Skills" icon="wand-magic-sparkles" href="/skills/create-skill">
+    Build new skills using harness engineering best practices: table-of-contents architecture, golden rules, and self-review loops.
+  </Card>
+  <Card title="Magic Fetch" icon="wand-sparkles" href="/skills/magic-fetch">
+    Log every capability gap in real-time and synthesise them into a prioritised integration roadmap.
+  </Card>
+</CardGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Clone the repo and link skills to your Claude Code config in under two minutes.
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Run your first skill and understand how the slash-command system works.
+  </Card>
+</CardGroup>

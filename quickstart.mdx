@@ -1,80 +1,96 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick Start"
+description: "Invoke your first skill and understand how the slash-command workflow system works."
 ---
 
-## Get started in three steps
+Once skills are installed, you invoke them by typing their name as a slash command in Claude Code. Claude loads the skill's `SKILL.md` as context and follows its workflow automatically — no additional prompting needed.
 
-Get your documentation site running locally and make your first customization.
+## Invoke a skill
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Open Claude Code">
+    Start a new Claude Code session in any project directory. Skills are available globally regardless of which project you have open.
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Type the slash command">
+    Type the skill name as a slash command and press Enter. For example:
 
-### Step 2: Deploy your changes
+    ```
+    /deep-research
+    ```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    Claude will prompt you for any information it needs — the research topic, the target audience, or the specific question to answer — and then begin the structured workflow.
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Claude runs the workflow">
+    When you invoke a skill, Claude loads the skill's `SKILL.md` file as context. That file contains:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    - Numbered workflow phases with pointers to reference files for each phase
+    - Golden rules that constrain Claude's behaviour throughout
+    - A self-review checklist Claude runs before delivering output
 
-### Step 3: Go live
+    Claude works through each phase in order, loading additional reference files as needed. You do not need to guide it through the steps.
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Review the self-review checklist">
+    Before delivering final output, every skill instructs Claude to run through a checklist of quality criteria specific to that skill. If any item fails, Claude corrects the issue before continuing.
+
+    This feedback loop is what makes skills reliable across sessions — errors are caught and fixed automatically rather than passed to you.
+  </Step>
+</Steps>
+
+## Example skills to try first
+
+<Tabs>
+  <Tab title="Research">
+    `/deep-research` is a good first skill. It runs parallel research agents across multiple dimensions (WHO, WHAT, HOW, WHERE, WHEN, WHY), applies source quality tiers, and produces a structured report with honest coverage gaps noted.
+
+    ```
+    /deep-research
+    ```
+
+    When prompted, describe the topic you want researched. For example: "the current state of open-source LLM fine-tuning tooling".
+  </Tab>
+  <Tab title="Building">
+    `/spec` turns a rough idea or conversation into a complete, structured technical specification saved as a markdown file. It's a fast way to go from fuzzy concept to something you can build against.
+
+    ```
+    /spec
+    ```
+
+    Describe your idea when prompted. Claude will ask clarifying questions and then produce the full spec.
+  </Tab>
+  <Tab title="Debugging">
+    `/flaky-test-diagnoser` runs multi-run experiments, isolation tests, ordering permutations, and timing analysis to find the root cause of a flaky test — rather than just re-running it and hoping.
+
+    ```
+    /flaky-test-diagnoser
+    ```
+
+    Point it at the flaky test file or describe the test by name when prompted.
+  </Tab>
+</Tabs>
+
+## How context loading works
+
+Skills use **progressive disclosure** to stay efficient:
+
+1. Only `SKILL.md` loads when you invoke the slash command. It's intentionally short (~50–100 lines) — a table of contents, not a manual.
+2. When Claude reaches a workflow phase that needs detailed guidance, it reads the relevant reference file for that phase.
+3. Reference files contain the templates, code patterns, and domain knowledge for their specific phase.
+
+This means Claude's context window stays focused on what it needs right now, rather than loading everything upfront.
+
+<Note>
+  All domain knowledge for a skill lives inside its directory. Claude does not rely on external docs, chat history, or assumptions — everything it needs is in the skill files.
+</Note>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Explore the full skill library to find workflows for your use case:
 
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+- [Building & Shipping](/skills/ship-it) — scaffold, build, and ship
+- [Research & Design](/skills/deep-research) — research, ideation, and spec
+- [Visualization](/skills/chart) — charts, diagrams, and presentations
+- [Debugging & Quality](/skills/flaky-test-diagnoser) — diagnosis and readiness
+- [Create your own skill](/skills/create-skill) — build custom workflows

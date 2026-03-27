@@ -1,0 +1,135 @@
+---
+title: "/competitive-matrix"
+description: Researches a market or technology space and renders an interactive, color-coded comparison matrix in the browser. Use for competitive analysis, market landscape, feature comparisons, and alternatives research.
+---
+
+Researches a market or technology space and renders an interactive, color-coded comparison matrix in the browser by combining live web research with a zero-dependency HTML table. Every cell is backed by a web search result — training data alone is never used for ratings.
+
+Use this skill when the user asks for competitive analysis, a competitive matrix, feature comparisons, market landscape, alternatives to X, or "who are the players in this space."
+
+## Invocation
+
+```text
+/competitive-matrix [market, product category, or technology space]
+```
+
+**Examples:**
+
+```text
+/competitive-matrix vector databases
+/competitive-matrix open-source API gateways
+/competitive-matrix LLM observability tools
+```
+
+## Output
+
+The skill writes a self-contained HTML file to `/tmp/matrix.html` and opens it in the browser. The matrix features:
+
+- Color-coded cells (green / blue / orange / red)
+- Sort on every column (click any header)
+- Filter by competitor name (case-insensitive)
+- Dark background (`#1e1e2e`)
+- A "Last updated: YYYY-MM-DD" line above the table
+
+## Rating scale
+
+All ratings use the four-point scale exclusively. No numbers, percentages, stars, or prose in cells:
+
+| Symbol | Meaning | Cell color |
+|--------|---------|------------|
+| `checkcheck` | Excellent | Green (`#27ae60`) |
+| `check` | Good | Blue (`#2980b9`) |
+| `tilde` | Partial / mixed | Orange (`#d35400`) |
+| `x` | Poor / missing | Red (`#c0392b`) |
+
+Every row ends with a **Verdict** column — a 5–10 word phrase summarising that player's position.
+
+## Workflow
+
+<Steps>
+  <Step title="Identify the space">
+    Confirm the market, product category, or technology being compared. Ask for clarification if the scope is ambiguous.
+  </Step>
+
+  <Step title="List the players">
+    Enumerate 5–10 key competitors or options to include. If the user lists more than 10, select the 10 most relevant and note the exclusions — matrices with more than 10 rows become unreadable.
+  </Step>
+
+  <Step title="Choose evaluation dimensions">
+    Select 5–8 columns relevant to this specific domain. Avoid generic filler columns. Dimensions should reflect what actually differentiates the players in this space.
+  </Step>
+
+  <Step title="Research each player">
+    Run at least one web search per player to verify current status and ratings. Training data goes stale; search results do not. Never assign a rating without a supporting search result from this session.
+  </Step>
+
+  <Step title="Assign ratings">
+    Score every cell using the four-point scale with evidence from the research step. Every cell must have a rating — no blanks.
+  </Step>
+
+  <Step title="Write the HTML file">
+    Write a complete self-contained file to `/tmp/matrix.html` using the template from `TEMPLATE.md`. The file must include: color-coded cells, sortable columns, a filter input, the dark background, and the "Last updated" date.
+  </Step>
+
+  <Step title="Open in browser and screenshot">
+    Call `mcp__chrome-devtools__new_page` with `url: file:///tmp/matrix.html`. Wait for the first competitor name to appear (`wait_for`, timeout 8000ms). Then take a screenshot.
+
+    <Warning>
+      Always use `wait_for` before taking the screenshot — not immediately after `new_page`. The page may not be fully rendered yet.
+    </Warning>
+  </Step>
+
+  <Step title="Deliver summary">
+    After the screenshot, output 3–5 bullet points naming the key differentiators and standout winner(s) per use case.
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering, verify **all** of the following:
+
+- At least one web search run per player — no player rated from training data alone
+- Between 5 and 10 players in the matrix
+- Between 5 and 8 evaluation dimension columns, plus a Verdict column as the last column
+- Every cell has a rating from the four-point scale — no blanks, no numbers
+- Every cell is color-coded with the correct color for its rating
+- A "Last updated: YYYY-MM-DD" line appears above the table
+- Sort works on every column
+- Filter input present and filters by competitor name (case-insensitive)
+- Dark background (`#1e1e2e`) applied
+- Screenshot taken after `wait_for` — not immediately after `new_page`
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Never rate from training data alone">
+    Run at least one web search per player before assigning any rating. Training data goes stale; search results do not.
+  </Accordion>
+
+  <Accordion title="2. Always use the four-point scale exclusively">
+    The only valid ratings are `checkcheck`, `check`, `tilde`, and `x`. Never use numbers, percentages, stars, or prose in cells.
+  </Accordion>
+
+  <Accordion title="3. Always include a Verdict column">
+    Every row must end with a 5–10 word phrase summarising that player's position. The Verdict column is the last column.
+  </Accordion>
+
+  <Accordion title="4. Always color-code every cell">
+    A matrix where all cells look the same is broken. Color-coding is what makes the matrix readable at a glance.
+  </Accordion>
+
+  <Accordion title="5. Never include more than 10 players">
+    Matrices with more than 10 rows become unreadable. If the user lists more, select the 10 most relevant and note the exclusions.
+  </Accordion>
+
+  <Accordion title="6. Always include a Last updated date">
+    Competitive landscapes change. The date the research was conducted must appear above the table in the rendered output.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `TEMPLATE.md` | Complete HTML template with color-coded cell rendering, sort/filter JS, CSS design tokens, and rating scale constants |
+| `RESEARCH.md` | How to choose evaluation dimensions, research each player, assign ratings, and handle stale or conflicting data |

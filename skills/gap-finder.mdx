@@ -1,0 +1,121 @@
+---
+title: "/gap-finder"
+description: Finds viable product, business, or project ideas in any domain by generating candidates in batches, rigorously validating each against real market data, and killing weak ideas with documented reasons.
+---
+
+Finds viable ideas through adversarial generation-and-kill cycles. Generates batches of 5 candidates, validates every idea against real market data using a 6-check kill chain, documents kill reasons, and loops until 3 survivors emerge. There is no batch limit — the skill keeps generating until it finds viable ideas.
+
+Use this skill when you want to brainstorm ideas, find market gaps, identify business opportunities, figure out what to build, or find underserved niches. Works for SaaS, open source, MCP servers, apps, tools, APIs, or any product category.
+
+## Invocation
+
+```text
+/gap-finder [domain or market space]
+```
+
+**Examples:**
+
+```text
+/gap-finder MCP servers for developer tools
+/gap-finder mobile apps for independent nurses
+/gap-finder open-source data pipeline tools
+```
+
+## Workflow
+
+<Steps>
+  <Step title="Establish the domain">
+    Identify the space the user wants ideas in. Extract any constraints (tech stack, budget, solo founder, geography) and previously killed ideas. Write these to `gap-finder-state.md` in the current working directory. This file tracks killed ideas to prevent re-proposing.
+  </Step>
+
+  <Step title="Generate a batch of 5 ideas">
+    Each idea must be **concrete and specific** to the domain — not a category, but a product with named features. Draw from at least 3 different angles per batch.
+
+    Bad: "A developer tool"
+    Good: "A CLI that takes a `package.json` and returns a dependency upgrade plan with breaking-change warnings by cross-referencing changelogs"
+  </Step>
+
+  <Step title="Run the kill chain on every idea">
+    Execute all 6 validation checks from `VALIDATION.md`. Search the web for each check. Kill on the first fatal failure — do not soften failures into "could work with modifications."
+
+    Kill reasons are specific and one-sentence — not "didn't seem viable."
+  </Step>
+
+  <Step title="Record killed ideas">
+    Append every killed idea and its specific kill reason to `gap-finder-state.md`. This prevents re-proposing the same idea or the same structural mechanism under a new name.
+  </Step>
+
+  <Step title="Present survivors immediately">
+    When an idea passes all 6 checks, present it immediately — do not wait for 3 survivors. Each survivor is shown with full evidence: search results, competitor count, differentiation, pain point scenario, and monetisation path.
+  </Step>
+
+  <Step title="Widen on saturation">
+    If 2 consecutive batches have 0 survivors AND more than 80% died at Check 1 (competitors), the current sub-space is saturated. Do NOT stop. Instead: note the saturated sub-space in the state file, then expand — go more niche, go adjacent, change the target user, change the business model, or combine two domains.
+
+    <Note>
+      After every 5 dead batches, radically pivot: change the domain, the target user, the business model, or the geography. The answer exists — keep looking.
+    </Note>
+  </Step>
+
+  <Step title="Loop until 3 survivors">
+    Continue generating, validating, and recording until 3 ideas survive all 6 checks. After 3 survivors, write the final ranked summary.
+  </Step>
+</Steps>
+
+## Self-review checklist
+
+Before delivering results, verify **all** of the following:
+
+- Every proposed idea was searched on at least 3 relevant sources (e.g., npm + Smithery + GitHub for dev tools; App Store + ProductHunt + Google for apps)
+- Every killed idea has a specific, one-sentence kill reason
+- Every survivor has competitor search evidence showing fewer than 2 direct competitors, or a clear documented differentiation from existing ones
+- Every survivor answers "what recurring pain point does this solve?" with a concrete user scenario
+- Every survivor has a realistic monetisation or growth path in one sentence
+- No survivor is something trivially solved by existing free tools or LLMs without external data
+- At least 3 batches were generated (15+ ideas evaluated)
+- Each idea is specific — names concrete features or tools, not just a category
+- Killed ideas are tracked in `gap-finder-state.md` to prevent re-proposing
+
+## Golden rules
+
+<AccordionGroup>
+  <Accordion title="1. Search before you pitch">
+    Never present an idea without first searching for existing implementations. Every idea gets 3+ web searches across relevant platforms. "I believe there aren't competitors" is not evidence — show the search results.
+  </Accordion>
+
+  <Accordion title="2. Kill fast, document why">
+    The moment an idea fails any validation check, kill it. Record the specific kill reason. Do not soften failures.
+  </Accordion>
+
+  <Accordion title="3. Recurring pain or death">
+    If the pain point occurs less than weekly for the target user, the idea is dead. Quarterly pain is not a business. Daily frustration is.
+  </Accordion>
+
+  <Accordion title="4. Existing solution already works is fatal">
+    If a free, widely-adopted tool already solves this well enough, the idea is dead. "Ours would be slightly better" is not a gap — it's a feature request on the existing tool.
+  </Accordion>
+
+  <Accordion title="5. Never stop until survivors are found">
+    There is no batch limit. When obvious ideas die, get weirder. When a sub-space is crowded, move to an adjacent one. Validate kill chains in parallel — each idea's checks are independent.
+  </Accordion>
+
+  <Accordion title="6. Concrete features, not categories">
+    "A developer tool" is not an idea. Name the specific mechanism, the specific user, and the specific pain point.
+  </Accordion>
+
+  <Accordion title="7. No resurrections">
+    Once an idea is killed, it stays dead. Do not re-propose killed ideas with minor variations. If "Postgres optimizer" is dead, "MySQL optimizer" dies for the same structural reason.
+  </Accordion>
+
+  <Accordion title="8. Evidence over intuition">
+    Every claim about market size, competitor count, or user demand must be backed by a search result or concrete data point.
+  </Accordion>
+</AccordionGroup>
+
+## Reference files
+
+| File | Contents |
+|------|----------|
+| `GENERATION.md` | How to generate idea batches, the idea template, angle diversity requirements |
+| `VALIDATION.md` | The 6-check kill chain with search strategies and pass/fail criteria |
+| `SURVIVOR-FORMAT.md` | Output format for surviving ideas with required evidence sections |
